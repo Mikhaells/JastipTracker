@@ -34,11 +34,12 @@ Aplikasi web manajemen bisnis jastip (jasa titip) untuk melacak trip, order, pel
 | `User` | Data user (id UUID, email, password hash, name) |
 | `Customer` | Data pelanggan (id UUID, userId FK, name, phone, email, notes) |
 | `Trip` | Data trip (id UUID, userId FK, name, country, startDate, endDate, status) |
-| `Order` | Data order (id UUID, tripId FK, customerId FK, status, notes, receiptUrl) |
+| `Order` | Data order (id UUID, tripId FK, customerId FK, stopId FK opsional, status, notes, receiptUrl) |
 | `OrderItem` | Item order (id UUID, orderId FK, itemName, quantity, unitPriceForeign, currency, unitPriceIDR, totalIDR, margin) |
 | `CurrencyRate` | Cache exchange rate (baseCurrency, targetCurrency, rate, fetchedAt) |
+| `TripStop` | Tempat/rute trip (id UUID, tripId FK, name, latitude, longitude, orderIndex) |
 
-Semua ID menggunakan UUID. Cascade delete: User -> Customer/Trip, Trip -> Order, Order -> OrderItem.
+Semua ID menggunakan UUID. Cascade delete: User -> Customer/Trip, Trip -> Order, Trip -> TripStop, Order -> OrderItem. Order dapat merujuk ke tempat pada rute trip melalui `stopId` (opsional).
 
 ## Status Workflow
 
@@ -56,8 +57,9 @@ PENDING -> ORDERED -> PAID -> SHIPPED -> DELIVERED
                                         \-> CANCELLED
 ```
 
-> Trip hanya bisa ditandai COMPLETED jika semua ordernya berstatus DELIVERED.
-> Status order hanya bisa diubah jika trip berstatus ONGOING.
+> Trip hanya bisa ditandai COMPLETED jika tidak ada order berstatus PENDING atau ORDERED.
+> Trip hanya bisa dibatalkan (CANCELLED) jika tidak ada order berstatus PAID.
+> Status order hanya bisa diubah jika trip berstatus PLANNING atau ONGOING.
 
 ## Persiapan
 
@@ -92,6 +94,13 @@ Script ini akan:
 - Membuat database `jastip_tracker` (jika belum ada)
 - Membuat semua tabel dengan cascade delete
 - Insert data demo (2 user, 5 pelanggan, 3 trip, 6 order, 16 item order, 19 currency rates)
+
+Jika database sudah dibuat sebelumnya, jalankan migration berikut (idempotent, aman diulang):
+
+```sql
+-- sql/migrate_trip_stop.sql   -> tabel TripStop (rute tempat)
+-- sql/migrate_order_stop.sql  -> kolom Order.stopId (daerah pada order)
+```
 
 ### 5. Konfigurasi Environment Variable
 
@@ -152,6 +161,8 @@ npm run lint     # Jalankan ESLint
 | `/api/dashboard` | GET | Statistik dashboard |
 | `/api/trips` | GET, POST | List / buat trip |
 | `/api/trips/[id]` | GET, PATCH, DELETE | Detail / update / hapus trip |
+| `/api/trips/[id]/stops` | GET, POST | List / tambah tempat rute (stop) |
+| `/api/trips/[id]/stops/[stopId]` | PATCH, DELETE | Update / hapus tempat rute |
 | `/api/customers` | GET, POST | List / buat pelanggan |
 | `/api/customers/[id]` | GET, PATCH, DELETE | Detail / update / hapus pelanggan |
 | `/api/orders` | POST | Buat order dengan items |

@@ -15,12 +15,14 @@ export interface OrderWithItems {
   id: string;
   tripId: string;
   customerId: string;
+  stopId: string | null;
   status: string;
   notes: string | null;
   receiptUrl: string | null;
   createdAt: Date;
   items: OrderItemInput[];
   customer: CustomerData;
+  stop?: TripStop | null;
 }
 
 export interface OrderItemInput {
@@ -62,4 +64,14 @@ export interface TripSummary {
   totalRevenue: number;
   totalMargin: number;
   orderCount: number;
+}
+
+export interface TripStop {
+  id: string;
+  tripId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  orderIndex: number;
+  createdAt: Date;
 }

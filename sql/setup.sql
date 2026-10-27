@@ -17,6 +17,7 @@ GO
 -- ============================================
 IF OBJECT_ID('OrderItem', 'U') IS NOT NULL DROP TABLE OrderItem;
 IF OBJECT_ID('[Order]', 'U') IS NOT NULL DROP TABLE [Order];
+IF OBJECT_ID('TripStop', 'U') IS NOT NULL DROP TABLE TripStop;
 IF OBJECT_ID('Trip', 'U') IS NOT NULL DROP TABLE Trip;
 IF OBJECT_ID('Customer', 'U') IS NOT NULL DROP TABLE Customer;
 IF OBJECT_ID('CurrencyRate', 'U') IS NOT NULL DROP TABLE CurrencyRate;
@@ -61,16 +62,30 @@ CREATE TABLE Trip (
 );
 GO
 
+CREATE TABLE TripStop (
+    id          NVARCHAR(36) PRIMARY KEY DEFAULT (NEWID()),
+    tripId      NVARCHAR(36) NOT NULL,
+    name        NVARCHAR(255) NOT NULL,
+    latitude    FLOAT NOT NULL,
+    longitude   FLOAT NOT NULL,
+    orderIndex  INT NOT NULL DEFAULT 0,
+    createdAt   DATETIME2 NOT NULL DEFAULT (GETDATE()),
+    CONSTRAINT FK_TripStop_Trip FOREIGN KEY (tripId) REFERENCES Trip(id) ON DELETE CASCADE
+);
+GO
+
 CREATE TABLE [Order] (
     id          NVARCHAR(36) PRIMARY KEY DEFAULT (NEWID()),
     tripId      NVARCHAR(36) NOT NULL,
     customerId  NVARCHAR(36) NOT NULL,
+    stopId      NVARCHAR(36) NULL,
     status      NVARCHAR(50) NOT NULL DEFAULT 'PENDING',
     notes       NVARCHAR(MAX) NULL,
     receiptUrl  NVARCHAR(500) NULL,
     createdAt   DATETIME2 NOT NULL DEFAULT (GETDATE()),
     CONSTRAINT FK_Order_Trip FOREIGN KEY (tripId) REFERENCES Trip(id) ON DELETE CASCADE,
-    CONSTRAINT FK_Order_Customer FOREIGN KEY (customerId) REFERENCES Customer(id)
+    CONSTRAINT FK_Order_Customer FOREIGN KEY (customerId) REFERENCES Customer(id),
+    CONSTRAINT FK_Order_TripStop FOREIGN KEY (stopId) REFERENCES TripStop(id)
 );
 GO
 
@@ -103,7 +118,9 @@ CREATE INDEX IX_Customer_userId ON Customer(userId);
 CREATE INDEX IX_Trip_userId ON Trip(userId);
 CREATE INDEX IX_Order_tripId ON [Order](tripId);
 CREATE INDEX IX_Order_customerId ON [Order](customerId);
+CREATE INDEX IX_Order_stopId ON [Order](stopId);
 CREATE INDEX IX_OrderItem_orderId ON OrderItem(orderId);
+CREATE INDEX IX_TripStop_tripId ON TripStop(tripId);
 GO
 
 -- ============================================

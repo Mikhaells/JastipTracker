@@ -87,12 +87,12 @@ export default function CurrencyInput({
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-foreground">{label}</label>
+      <label className="form-label">{label}</label>
       <div className="flex gap-2">
         <select
           value={currency}
           onChange={(e) => handleCurrencyChange(e.target.value)}
-          className="w-28 shrink-0 rounded-lg border border-border bg-card px-2 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="form-input w-28 shrink-0 px-2"
           disabled={disabled}
         >
           <option value="IDR">IDR</option>
@@ -109,7 +109,7 @@ export default function CurrencyInput({
           placeholder="0"
           step="0.01"
           min="0"
-          className="flex-1 rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="form-input flex-1 px-3"
           disabled={disabled}
         />
       </div>

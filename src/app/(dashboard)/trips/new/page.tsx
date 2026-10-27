@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  LoaderCircle,
+  Plane,
+  MapPin,
+  Globe2,
+  CalendarDays,
+} from "lucide-react";
 import Link from "next/link";
 
 const COUNTRIES = [
@@ -63,100 +70,139 @@ export default function NewTripPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-center gap-3 pt-2">
+    <div className="mx-auto max-w-2xl space-y-5 pb-6">
+      <div className="animate-fade-up flex items-center gap-3">
         <Link
           href="/trips"
-          className="p-2 hover:bg-card rounded-lg transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-white/70 text-muted shadow-sm transition hover:text-foreground"
+          aria-label="Kembali"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-xl font-bold">Trip Baru</h1>
+        <div>
+          <p className="eyebrow">Perjalanan</p>
+          <h1 className="mt-0.5 text-xl font-semibold tracking-tight md:text-2xl">
+            Trip Baru
+          </h1>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="surface-card animate-fade-up-delay-1 space-y-5 p-6"
+      >
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
             {error}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Nama Trip *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Contoh: Trip Jepang Maret 2026"
-          />
+          <label className="form-label">Nama Trip *</label>
+          <div className="relative">
+            <Plane
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="form-input pl-10"
+              placeholder="Contoh: Trip Jepang Maret 2026"
+            />
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Negara Tujuan *
-          </label>
-          <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            required
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="">Pilih negara</option>
-            {COUNTRIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-            <option value="Lainnya">Lainnya...</option>
-          </select>
-          {country === "Lainnya" && (
-            <input
-              type="text"
-              value={customCountry}
-              onChange={(e) => setCustomCountry(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm mt-2 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Masukkan nama negara"
+          <label className="form-label">Negara Tujuan *</label>
+          <div className="relative">
+            <Globe2
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-400"
             />
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              required
+              className="form-input pl-10 pr-9"
+            >
+              <option value="">Pilih negara</option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+              <option value="Lainnya">Lainnya...</option>
+            </select>
+          </div>
+          {country === "Lainnya" && (
+            <div className="relative mt-2">
+              <MapPin
+                size={15}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={customCountry}
+                onChange={(e) => setCustomCountry(e.target.value)}
+                required
+                className="form-input pl-10"
+                placeholder="Masukkan nama negara"
+              />
+            </div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Tanggal Mulai *
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            <label className="form-label">Tanggal Mulai *</label>
+            <div className="relative">
+              <CalendarDays
+                size={15}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+                className="form-input pl-10"
+              />
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Tanggal Selesai
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            <label className="form-label">Tanggal Selesai</label>
+            <div className="relative">
+              <CalendarDays
+                size={15}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="form-input pl-10"
+              />
+            </div>
           </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="btn-primary w-full py-3 text-sm disabled:opacity-60"
         >
-          {loading ? "Membuat..." : "Buat Trip"}
+          {loading ? (
+            <>
+              <LoaderCircle size={16} className="animate-spin" /> Membuat...
+            </>
+          ) : (
+            <>
+              <Plane size={16} /> Buat Trip
+            </>
+          )}
         </button>
       </form>
     </div>

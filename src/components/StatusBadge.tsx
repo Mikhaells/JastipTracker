@@ -1,19 +1,65 @@
 "use client";
 
-const tripStatusConfig: Record<string, { label: string; color: string }> = {
-  PLANNING: { label: "Perencanaan", color: "bg-blue-100 text-blue-700" },
-  ONGOING: { label: "Berlangsung", color: "bg-amber-100 text-amber-700" },
-  COMPLETED: { label: "Selesai", color: "bg-green-100 text-green-700" },
-  CANCELLED: { label: "Dibatalkan", color: "bg-red-100 text-red-700" },
+const tripStatusConfig: Record<
+  string,
+  { label: string; color: string; dot: string }
+> = {
+  PLANNING: {
+    label: "Perencanaan",
+    color: "bg-primary-soft text-primary ring-primary-ring",
+    dot: "bg-primary",
+  },
+  ONGOING: {
+    label: "Berlangsung",
+    color: "bg-accent-soft text-accent-dark ring-accent-ring",
+    dot: "bg-accent",
+  },
+  COMPLETED: {
+    label: "Selesai",
+    color: "bg-success-soft text-success ring-success-ring",
+    dot: "bg-success",
+  },
+  CANCELLED: {
+    label: "Dibatalkan",
+    color: "bg-danger-soft text-danger ring-danger-ring",
+    dot: "bg-danger",
+  },
 };
 
-const orderStatusConfig: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Menunggu", color: "bg-gray-100 text-gray-700" },
-  ORDERED: { label: "Dipesan", color: "bg-blue-100 text-blue-700" },
-  PAID: { label: "Dibayar", color: "bg-indigo-100 text-indigo-700" },
-  SHIPPED: { label: "Dikirim", color: "bg-amber-100 text-amber-700" },
-  DELIVERED: { label: "Sampai", color: "bg-green-100 text-green-700" },
-  CANCELLED: { label: "Dibatalkan", color: "bg-red-100 text-red-700" },
+const orderStatusConfig: Record<
+  string,
+  { label: string; color: string; dot: string }
+> = {
+  PENDING: {
+    label: "Menunggu",
+    color: "bg-muted-soft text-muted ring-muted-ring",
+    dot: "bg-muted",
+  },
+  ORDERED: {
+    label: "Dipesan",
+    color: "bg-primary-soft text-primary ring-primary-ring",
+    dot: "bg-primary",
+  },
+  PAID: {
+    label: "Dibayar",
+    color: "bg-accent-soft text-accent-dark ring-accent-ring",
+    dot: "bg-accent",
+  },
+  SHIPPED: {
+    label: "Dikirim",
+    color: "bg-warning-soft text-warning ring-warning-ring",
+    dot: "bg-warning",
+  },
+  DELIVERED: {
+    label: "Sampai",
+    color: "bg-success-soft text-success ring-success-ring",
+    dot: "bg-success",
+  },
+  CANCELLED: {
+    label: "Dibatalkan",
+    color: "bg-danger-soft text-danger ring-danger-ring",
+    dot: "bg-danger",
+  },
 };
 
 export function StatusBadge({ status, type }: { status: string; type: "trip" | "order" }) {
@@ -26,8 +72,9 @@ export function StatusBadge({ status, type }: { status: string; type: "trip" | "
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${config.color}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
       {config.label}
     </span>
   );
@@ -50,7 +97,7 @@ export function StatusSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      className="w-full cursor-pointer rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium shadow-sm transition-colors focus:border-primary focus:outline-none"
     >
       {Object.entries(config).map(([key, { label }]) => (
         <option key={key} value={key} disabled={disabledKeys.includes(key)}>

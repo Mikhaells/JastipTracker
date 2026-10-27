@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  UserRoundPlus,
+  LoaderCircle,
+  Phone,
+  Mail,
+  FileText,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function NewCustomerPage() {
@@ -46,83 +54,118 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-center gap-3 pt-2">
+    <div className="mx-auto max-w-2xl space-y-5 pb-6">
+      <div className="animate-fade-up flex items-center gap-3">
         <Link
           href="/customers"
-          className="p-2 hover:bg-card rounded-lg transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-white/70 text-muted shadow-sm transition hover:text-foreground"
+          aria-label="Kembali"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-xl font-bold">Tambah Pelanggan</h1>
+        <div>
+          <p className="eyebrow">Pelanggan</p>
+          <h1 className="mt-0.5 text-xl font-semibold tracking-tight md:text-2xl">
+            Tambah Pelanggan
+          </h1>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="surface-card animate-fade-up-delay-1 space-y-5 p-6"
+      >
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
             {error}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Nama Lengkap *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Nama pelanggan"
-          />
+          <label className="form-label">Nama Lengkap *</label>
+          <div className="relative">
+            <UserRound
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="form-input pl-10"
+              placeholder="Nama pelanggan"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="form-label">No. Telepon</label>
+            <div className="relative">
+              <Phone
+                size={15}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="form-input pl-10"
+                placeholder="08xxxxxxxxxx"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Email</label>
+            <div className="relative">
+              <Mail
+                size={15}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="form-input pl-10"
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            No. Telepon
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="08xxxxxxxxxx"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="email@example.com"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">
-            Catatan
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-            placeholder="Catatan tentang pelanggan..."
-          />
+          <label className="form-label">Catatan</label>
+          <div className="relative">
+            <FileText
+              size={15}
+              className="pointer-events-none absolute left-3.5 top-3.5 text-slate-400"
+            />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="form-input resize-none pl-10"
+              placeholder="Catatan tentang pelanggan..."
+            />
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="btn-primary w-full py-3 text-sm disabled:opacity-60"
         >
-          {loading ? "Menyimpan..." : "Simpan Pelanggan"}
+          {loading ? (
+            <>
+              <LoaderCircle size={16} className="animate-spin" /> Menyimpan...
+            </>
+          ) : (
+            <>
+              <UserRoundPlus size={16} /> Simpan Pelanggan
+            </>
+          )}
         </button>
       </form>
     </div>

@@ -22,7 +22,12 @@ async function getOrderFull(orderId: string) {
   const orderResult = await db
     .request()
     .input("id", orderId)
-    .query("SELECT * FROM [Order] WHERE id = @id");
+    .query(`
+      SELECT o.*, s.name AS stopName, s.latitude AS stopLatitude, s.longitude AS stopLongitude
+      FROM [Order] o
+      LEFT JOIN TripStop s ON o.stopId = s.id
+      WHERE o.id = @id
+    `);
 
   const order = orderResult.recordset[0];
   if (!order) return null;
@@ -41,7 +46,39 @@ async function getOrderFull(orderId: string) {
     ...order,
     items: itemsResult.recordset,
     customer: customerResult.recordset[0],
+    stop: order.stopId
+      ? {
+          id: order.stopId,
+          name: order.stopName,
+          latitude: order.stopLatitude,
+          longitude: order.stopLongitude,
+        }
+      : null,
   };
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const order = await getOrderWithOwnership(id, session.user.id);
+  if (!order) {
+    return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
+  }
+
+  const full = await getOrderFull(id);
+  if (!full) {
+    return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
+  }
+
+  return NextResponse.json(full);
 }
 
 export async function PATCH(
@@ -68,9 +105,13 @@ export async function PATCH(
       .input("tripId", order.tripId)
       .query("SELECT status FROM Trip WHERE id = @tripId");
 
-    if (tripResult.recordset[0]?.status !== "ONGOING") {
+    const tripStatus = tripResult.recordset[0]?.status;
+    if (tripStatus !== "PLANNING" && tripStatus !== "ONGOING") {
       return NextResponse.json(
-        { error: "Status order hanya bisa diubah saat trip sedang berlangsung" },
+        {
+          error:
+            "Status order hanya bisa diubah saat trip berstatus Perencanaan atau Berlangsung",
+        },
         { status: 400 }
       );
     }
@@ -85,9 +126,65 @@ export async function PATCH(
     return NextResponse.json(updated);
   }
 
+  const fields: string[] = [];
+  const db = await getPool();
+  const req2 = db.request().input("id", id);
+
+  if (body.customerId !== undefined) {
+    const customerCheck = await db
+      .request()
+      .input("customerId", body.customerId)
+      .input("userId", session.user.id)
+      .query(
+        "SELECT id FROM Customer WHERE id = @customerId AND userId = @userId"
+      );
+
+    if (!customerCheck.recordset[0]) {
+      return NextResponse.json(
+        { error: "Customer tidak ditemukan" },
+        { status: 400 }
+      );
+    }
+
+    fields.push("customerId = @customerId");
+    req2.input("customerId", body.customerId);
+  }
+
+  if (body.stopId !== undefined) {
+    if (body.stopId) {
+      const stopCheck = await db
+        .request()
+        .input("stopId", body.stopId)
+        .input("tripId", order.tripId)
+        .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
+
+      if (!stopCheck.recordset[0]) {
+        return NextResponse.json(
+          { error: "Tempat tidak ditemukan pada trip ini" },
+          { status: 400 }
+        );
+      }
+    }
+
+    fields.push("stopId = @stopId");
+    req2.input("stopId", body.stopId || null);
+  }
+
+  if (body.notes !== undefined) {
+    fields.push("notes = @notes");
+    req2.input("notes", body.notes);
+  }
+  if (body.receiptUrl !== undefined) {
+    fields.push("receiptUrl = @receiptUrl");
+    req2.input("receiptUrl", body.receiptUrl);
+  }
+
+  // Replace items only after all ownership/validation checks have passed.
   if (body.items) {
-    const db = await getPool();
-    await db.request().input("orderId", id).query("DELETE FROM OrderItem WHERE orderId = @orderId");
+    await db
+      .request()
+      .input("orderId", id)
+      .query("DELETE FROM OrderItem WHERE orderId = @orderId");
 
     for (const item of body.items) {
       const rate = await getExchangeRate(item.currency, "IDR");
@@ -110,19 +207,6 @@ export async function PATCH(
           VALUES (NEWID(), @orderId, @itemName, @quantity, @unitPriceForeign, @currency, @unitPriceIDR, @totalIDR, @margin, @notes)
         `);
     }
-  }
-
-  const fields: string[] = [];
-  const db = await getPool();
-  const req2 = db.request().input("id", id);
-
-  if (body.notes !== undefined) {
-    fields.push("notes = @notes");
-    req2.input("notes", body.notes);
-  }
-  if (body.receiptUrl !== undefined) {
-    fields.push("receiptUrl = @receiptUrl");
-    req2.input("receiptUrl", body.receiptUrl);
   }
 
   if (fields.length > 0) {

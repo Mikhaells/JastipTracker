@@ -5,7 +5,17 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { ArrowLeft, Trash2, Phone, Mail, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  Trash2,
+  Phone,
+  Mail,
+  FileText,
+  Pencil,
+  ShoppingBag,
+  Wallet,
+  ReceiptText,
+} from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MoneyIDR } from "@/components/Money";
 
@@ -42,21 +52,13 @@ export default function CustomerDetailPage() {
   const customerId = params.id as string;
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchCustomer = useCallback(() => {
     fetch(`/api/customers/${customerId}`)
       .then((r) => r.json())
       .then((d) => {
         setCustomer(d);
-        setEditName(d.name);
-        setEditPhone(d.phone || "");
-        setEditEmail(d.email || "");
-        setEditNotes(d.notes || "");
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -66,32 +68,33 @@ export default function CustomerDetailPage() {
     fetchCustomer();
   }, [customerId, fetchCustomer]);
 
-  async function handleSave() {
-    await fetch(`/api/customers/${customerId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editName,
-        phone: editPhone || null,
-        email: editEmail || null,
-        notes: editNotes || null,
-      }),
-    });
-    setEditing(false);
-    fetchCustomer();
-  }
-
   async function handleDelete() {
     if (!confirm("Yakin ingin menghapus pelanggan ini?")) return;
-    await fetch(`/api/customers/${customerId}`, { method: "DELETE" });
+
+    setDeleteError("");
+    const res = await fetch(`/api/customers/${customerId}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error || "Gagal menghapus pelanggan");
+      return;
+    }
+
     router.push("/customers");
   }
 
   if (loading || !customer) {
     return (
-      <div className="space-y-4 py-4">
-        <div className="h-8 w-32 bg-card rounded animate-pulse" />
-        <div className="h-40 bg-card rounded-xl animate-pulse" />
+      <div className="space-y-5 pb-6">
+        <div className="h-14 w-64 animate-pulse rounded-2xl bg-white/70" />
+        <div className="grid gap-3 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-white/70" />
+          ))}
+        </div>
+        <div className="h-64 animate-pulse rounded-2xl bg-white/70" />
       </div>
     );
   }
@@ -102,149 +105,166 @@ export default function CustomerDetailPage() {
   );
 
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-center gap-3 pt-2">
+    <div className="space-y-5 pb-6">
+      <div className="animate-fade-up flex items-center gap-3">
         <Link
           href="/customers"
-          className="p-2 hover:bg-card rounded-lg transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-white/70 text-muted shadow-sm transition hover:text-foreground"
+          aria-label="Kembali ke daftar pelanggan"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={18} />
         </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{customer.name}</h1>
+        <div className="min-w-0 flex-1">
+          <p className="eyebrow">Detail Pelanggan</p>
+          <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight md:text-2xl">
+            {customer.name}
+          </h1>
+          <p className="text-sm text-muted">
+            {customer.orders.length} order tercatat
+          </p>
         </div>
-        <button
-          onClick={handleDelete}
-          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-        >
-          <Trash2 size={18} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <Link
+            href={`/customers/${customerId}/edit`}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-white/70 text-muted shadow-sm transition hover:text-primary"
+            aria-label="Edit pelanggan"
+          >
+            <Pencil size={17} />
+          </Link>
+          <button
+            onClick={handleDelete}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-danger-ring/80 bg-white/70 text-danger shadow-sm transition hover:bg-danger-soft"
+            aria-label="Hapus pelanggan"
+          >
+            <Trash2 size={17} />
+          </button>
+        </div>
       </div>
 
-      <div className="md:grid md:grid-cols-3 md:gap-4 space-y-4 md:space-y-0">
-        <div className="md:col-span-1 bg-card rounded-xl border border-border p-4 space-y-3">
-          {editing ? (
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Nama"
-              />
-              <input
-                type="tel"
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Telepon"
-              />
-              <input
-                type="email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Email"
-              />
-              <textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                placeholder="Catatan"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSave}
-                  className="flex-1 bg-primary text-white text-sm font-medium py-2.5 rounded-lg hover:bg-primary-dark"
-                >
-                  Simpan
-                </button>
-                <button
-                  onClick={() => setEditing(false)}
-                  className="flex-1 bg-card border border-border text-sm font-medium py-2.5 rounded-lg hover:bg-background"
-                >
-                  Batal
-                </button>
+      {deleteError && (
+        <div className="rounded-xl border border-danger-ring bg-danger-soft px-4 py-3 text-sm text-danger">
+          {deleteError}
+        </div>
+      )}
+
+      <div className="animate-fade-up-delay-1 space-y-4 md:grid md:grid-cols-3 md:gap-5 md:space-y-0">
+        <div className="space-y-3 md:col-span-1">
+          <div className="surface-card p-5">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-light to-primary text-base font-semibold text-white shadow-md shadow-primary/25">
+                {customer.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-semibold tracking-tight">
+                  {customer.name}
+                </p>
+                <p className="text-xs text-muted">Pelanggan</p>
               </div>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1.5">
-                  {customer.phone && (
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                      <Phone size={14} /> {customer.phone}
-                    </div>
-                  )}
-                  {customer.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                      <Mail size={14} /> {customer.email}
-                    </div>
-                  )}
-                  {customer.notes && (
-                    <div className="flex items-center gap-2 text-sm text-muted">
-                      <FileText size={14} /> {customer.notes}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setEditing(true)}
-                  className="text-sm text-primary font-medium hover:underline"
-                >
-                  Edit
-                </button>
-              </div>
 
-              <div className="border-t border-border pt-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-muted uppercase">Total Transaksi</p>
-                    <p className="text-lg font-bold">
-                      <MoneyIDR amount={totalSpent} />
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted uppercase">Total Order</p>
-                    <p className="text-lg font-bold">{customer.orders.length}</p>
-                  </div>
-                </div>
+            <div className="mt-4 space-y-2.5 border-t border-border/70 pt-4">
+              <div className="flex items-start gap-2.5 text-xs">
+                <Phone size={13} className="mt-0.5 shrink-0 text-muted" />
+                <span className={customer.phone ? "" : "text-muted"}>
+                  {customer.phone || "No. telepon belum diisi"}
+                </span>
               </div>
-            </>
-          )}
+              <div className="flex items-start gap-2.5 text-xs">
+                <Mail size={13} className="mt-0.5 shrink-0 text-muted" />
+                <span className={customer.email ? "" : "text-muted"}>
+                  {customer.email || "Email belum diisi"}
+                </span>
+              </div>
+              {customer.notes && (
+                <div className="flex items-start gap-2.5 text-xs">
+                  <FileText
+                    size={13}
+                    className="mt-0.5 shrink-0 text-muted"
+                  />
+                  <span className="leading-relaxed">{customer.notes}</span>
+                </div>
+              )}
+            </div>
+
+            <Link
+              href={`/customers/${customerId}/edit`}
+              className="btn-secondary mt-4 w-full py-2.5 text-xs"
+            >
+              <Pencil size={13} /> Edit data pelanggan
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="surface-card p-4">
+              <div className="flex items-center gap-2 text-muted">
+                <Wallet size={13} />
+                <p className="eyebrow">Transaksi</p>
+              </div>
+              <p className="mt-1.5 text-base font-semibold tracking-tight">
+                <MoneyIDR amount={totalSpent} />
+              </p>
+            </div>
+            <div className="surface-card p-4">
+              <div className="flex items-center gap-2 text-muted">
+                <ShoppingBag size={13} />
+                <p className="eyebrow">Order</p>
+              </div>
+              <p className="mt-1.5 text-base font-semibold tabular-nums tracking-tight">
+                {customer.orders.length}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="font-semibold">Riwayat Order</h2>
+        <div className="space-y-3 md:col-span-2">
+          <div>
+            <p className="eyebrow">Aktivitas</p>
+            <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
+              Riwayat Order
+            </h2>
+          </div>
 
           {customer.orders.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-8 text-center">
-              <p className="text-muted text-sm">Belum ada order</p>
+            <div className="surface-card p-10 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+                <ReceiptText size={22} />
+              </div>
+              <p className="mt-3 text-sm font-medium">Belum ada order</p>
+              <p className="mt-1 text-xs text-muted">
+                Order pelanggan ini akan muncul di sini.
+              </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {customer.orders.map((order) => {
                 const orderTotal = order.items.reduce((s, i) => s + i.totalIDR, 0);
                 return (
                   <Link
                     key={order.id}
                     href={`/trips/${order.trip.id}`}
-                    className="block bg-card rounded-xl border border-border p-4 hover:border-primary/30 transition-colors"
+                    className="surface-card surface-card-hover block p-4"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-medium">{order.trip.name}</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold">
+                            {order.trip.name}
+                          </h3>
                           <StatusBadge status={order.status} type="order" />
                         </div>
-                        <p className="text-xs text-muted mt-0.5">
+                        <p className="mt-1 text-[11px] text-muted">
                           {order.trip.country} &middot;{" "}
                           {format(new Date(order.createdAt), "dd MMM yyyy", {
                             locale: id,
                           })}
                         </p>
+                        <p className="mt-1 truncate text-[11px] text-muted">
+                          {order.items
+                            .map((item) => `${item.quantity}x ${item.itemName}`)
+                            .join(", ")}
+                        </p>
                       </div>
-                      <p className="text-sm font-semibold">
+                      <p className="shrink-0 text-sm font-semibold">
                         <MoneyIDR amount={orderTotal} />
                       </p>
                     </div>

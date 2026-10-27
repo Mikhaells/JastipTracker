@@ -21,8 +21,13 @@ export default function DashboardLayout({
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted">Memuat...</div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 animate-pulse items-center justify-center rounded-2xl bg-gradient-to-br from-primary-light to-primary shadow-lg shadow-primary/25">
+            <span className="text-lg font-bold text-white">JT</span>
+          </div>
+          <div className="text-sm text-muted">Memuat...</div>
+        </div>
       </div>
     );
   }
@@ -30,9 +35,9 @@ export default function DashboardLayout({
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen pb-28 md:pb-10">
       <BottomNav />
-      <main className="max-w-lg md:max-w-5xl mx-auto px-4 md:px-6 pt-4 md:pt-6">
+      <main className="mx-auto max-w-6xl px-4 pt-5 md:px-6 md:pt-8 lg:px-8">
         {children}
       </main>
     </div>

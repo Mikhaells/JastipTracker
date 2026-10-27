@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  UserRound,
+  Mail,
+  LockKeyhole,
+  LoaderCircle,
+  UserPlus,
+  Plane,
+} from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -51,96 +59,147 @@ export default function RegisterPage() {
     }
   }
 
+  const inputClass =
+    "w-full rounded-xl border border-border bg-white/80 py-3 pl-10 pr-4 text-sm shadow-sm transition-colors focus:border-primary focus:outline-none";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl font-bold">JT</span>
-          </div>
-          <h1 className="text-2xl font-bold">Daftar Akun</h1>
-          <p className="text-muted text-sm mt-1">Buat akun Jastip Tracker</p>
+    <div className="animate-fade-up">
+      <div className="mb-8 lg:hidden">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-light to-primary text-white shadow-lg shadow-primary/25">
+            <Plane size={18} strokeWidth={2.2} />
+          </span>
+          <span className="text-[17px] font-semibold tracking-tight">
+            Jastip<span className="text-primary">Tracker</span>
+          </span>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+      <p className="eyebrow">Daftar</p>
+      <h1 className="mt-1.5 text-2xl font-semibold tracking-tight">
+        Buat akun baru
+      </h1>
+      <p className="mt-1 text-sm text-muted">
+        Mulai kelola trip dan order jastip Anda hari ini.
+      </p>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Nama Lengkap
-            </label>
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+        {error && (
+          <div className="rounded-xl border border-danger-ring bg-danger-soft px-4 py-3 text-sm text-danger">
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Nama Lengkap
+          </label>
+          <div className="relative">
+            <UserRound
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+            />
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              autoComplete="name"
+              className={inputClass}
               placeholder="Masukkan nama"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Email
-            </label>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Email
+          </label>
+          <div className="relative">
+            <Mail
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+            />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              autoComplete="email"
+              className={inputClass}
               placeholder="email@example.com"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Password
-            </label>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Password
+          </label>
+          <div className="relative">
+            <LockKeyhole
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+            />
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              autoComplete="new-password"
+              className={inputClass}
               placeholder="Minimal 6 karakter"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Konfirmasi Password
-            </label>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Konfirmasi Password
+          </label>
+          <div className="relative">
+            <LockKeyhole
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+            />
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              autoComplete="new-password"
+              className={inputClass}
               placeholder="Ulangi password"
             />
           </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-          >
-            {loading ? "Mendaftar..." : "Daftar"}
-          </button>
-        </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full py-3 text-sm disabled:opacity-60"
+        >
+          {loading ? (
+            <>
+              <LoaderCircle size={16} className="animate-spin" /> Mendaftar...
+            </>
+          ) : (
+            <>
+              <UserPlus size={16} /> Daftar
+            </>
+          )}
+        </button>
+      </form>
 
-        <p className="text-center text-sm text-muted mt-6">
-          Sudah punya akun?{" "}
-          <Link href="/login" className="text-primary font-medium hover:underline">
-            Masuk
-          </Link>
-        </p>
-      </div>
+      <p className="mt-6 text-center text-sm text-muted">
+        Sudah punya akun?{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-primary hover:text-primary-dark"
+        >
+          Masuk
+        </Link>
+      </p>
     </div>
   );
 }

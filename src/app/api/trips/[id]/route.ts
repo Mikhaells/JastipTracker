@@ -29,9 +29,11 @@ export async function GET(
     .request()
     .input("tripId", id)
     .query(`
-      SELECT o.*, c.name AS customerName, c.phone AS customerPhone, c.email AS customerEmail
+      SELECT o.*, c.name AS customerName, c.phone AS customerPhone, c.email AS customerEmail,
+        s.name AS stopName, s.latitude AS stopLatitude, s.longitude AS stopLongitude
       FROM [Order] o
       JOIN Customer c ON o.customerId = c.id
+      LEFT JOIN TripStop s ON o.stopId = s.id
       WHERE o.tripId = @tripId
       ORDER BY o.createdAt DESC
     `);
@@ -45,6 +47,14 @@ export async function GET(
 
     orders.push({
       ...order,
+      stop: order.stopId
+        ? {
+            id: order.stopId,
+            name: order.stopName,
+            latitude: order.stopLatitude,
+            longitude: order.stopLongitude,
+          }
+        : null,
       customer: {
         id: order.customerId,
         name: order.customerName,
@@ -91,17 +101,35 @@ export async function PATCH(
   }
 
   if (body.status === "COMPLETED") {
-    const orders = await db
+    const pendingOrders = await db
       .request()
       .input("tripId", id)
-      .query("SELECT status FROM [Order] WHERE tripId = @tripId");
+      .query(
+        "SELECT id FROM [Order] WHERE tripId = @tripId AND status IN ('PENDING', 'ORDERED')"
+      );
 
-    const allDelivered = orders.recordset.every(
-      (o: { status: string }) => o.status === "DELIVERED"
-    );
-    if (!allDelivered) {
+    if (pendingOrders.recordset.length > 0) {
       return NextResponse.json(
-        { error: "Semua order harus dalam status DELIVERED sebelum trip bisa diselesaikan" },
+        {
+          error:
+            "Trip hanya bisa diselesaikan jika tidak ada order berstatus Menunggu atau Dipesan",
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (body.status === "CANCELLED") {
+    const paidOrders = await db
+      .request()
+      .input("tripId", id)
+      .query(
+        "SELECT id FROM [Order] WHERE tripId = @tripId AND status = 'PAID'"
+      );
+
+    if (paidOrders.recordset.length > 0) {
+      return NextResponse.json(
+        { error: "Trip tidak bisa dibatalkan karena masih ada order yang sudah dibayar" },
         { status: 400 }
       );
     }
@@ -166,6 +194,11 @@ export async function DELETE(
   if (!tripCheck.recordset[0]) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
+
+  await db
+    .request()
+    .input("id", id)
+    .query("UPDATE [Order] SET stopId = NULL WHERE tripId = @id");
 
   await db.request().input("id", id).query("DELETE FROM Trip WHERE id = @id");
 

@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { tripId, customerId, notes, items } = await req.json();
+  const { tripId, customerId, stopId, notes, items } = await req.json();
 
   if (!tripId || !customerId || !items?.length) {
     return NextResponse.json(
@@ -27,6 +27,21 @@ export async function POST(req: Request) {
 
   if (!tripCheck.recordset[0]) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
+  }
+
+  if (stopId) {
+    const stopCheck = await db
+      .request()
+      .input("stopId", stopId)
+      .input("tripId", tripId)
+      .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
+
+    if (!stopCheck.recordset[0]) {
+      return NextResponse.json(
+        { error: "Tempat tidak ditemukan pada trip ini" },
+        { status: 400 }
+      );
+    }
   }
 
   const processedItems = [];
@@ -52,11 +67,12 @@ export async function POST(req: Request) {
     .request()
     .input("tripId", tripId)
     .input("customerId", customerId)
+    .input("stopId", stopId || null)
     .input("notes", notes || null)
     .query(`
-      INSERT INTO [Order] (id, tripId, customerId, notes, status, createdAt)
+      INSERT INTO [Order] (id, tripId, customerId, stopId, notes, status, createdAt)
       OUTPUT INSERTED.*
-      VALUES (NEWID(), @tripId, @customerId, @notes, 'PENDING', GETDATE())
+      VALUES (NEWID(), @tripId, @customerId, @stopId, @notes, 'PENDING', GETDATE())
     `);
 
   const order = orderResult.recordset[0];
@@ -89,9 +105,15 @@ export async function POST(req: Request) {
     .input("customerId", customerId)
     .query("SELECT * FROM Customer WHERE id = @customerId");
 
+  const stopResult = await db
+    .request()
+    .input("stopId", order.stopId)
+    .query("SELECT * FROM TripStop WHERE id = @stopId");
+
   return NextResponse.json({
     ...order,
     items: itemsResult.recordset,
     customer: customerResult.recordset[0],
+    stop: stopResult.recordset[0] ?? null,
   });
 }

@@ -136,6 +136,21 @@ export async function DELETE(
     return NextResponse.json({ error: "Customer tidak ditemukan" }, { status: 404 });
   }
 
+  const orderCount = await db
+    .request()
+    .input("customerId", id)
+    .query("SELECT COUNT(*) AS orderCount FROM [Order] WHERE customerId = @customerId");
+
+  const count = orderCount.recordset[0]?.orderCount ?? 0;
+  if (count > 0) {
+    return NextResponse.json(
+      {
+        error: `Pelanggan tidak bisa dihapus karena masih memiliki ${count} order. Hapus order terkait terlebih dahulu.`,
+      },
+      { status: 400 }
+    );
+  }
+
   await db.request().input("id", id).query("DELETE FROM Customer WHERE id = @id");
 
   return NextResponse.json({ success: true });
