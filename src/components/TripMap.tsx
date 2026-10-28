@@ -50,7 +50,8 @@ export default function TripMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, {
+    const container = containerRef.current;
+    const map = L.map(container, {
       center: centerRef.current ?? [-6.2088, 106.8456],
       zoom: 12,
       scrollWheelZoom: false,
@@ -63,9 +64,17 @@ export default function TripMap({
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
 
+    const enableScroll = () => map.scrollWheelZoom.enable();
+    const disableScroll = () => map.scrollWheelZoom.disable();
+
+    container.addEventListener("mouseenter", enableScroll);
+    container.addEventListener("mouseleave", disableScroll);
+
     setTimeout(() => map.invalidateSize(), 100);
 
     return () => {
+      container.removeEventListener("mouseenter", enableScroll);
+      container.removeEventListener("mouseleave", disableScroll);
       map.remove();
       mapRef.current = null;
       layerRef.current = null;

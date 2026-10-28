@@ -144,9 +144,6 @@ export default function HomePage() {
       <div className="mx-auto max-w-6xl space-y-6 px-4 pt-5 md:px-6 md:pt-8 lg:px-8">
         {/* Hero */}
         <section className="hero-gradient animate-fade-up relative overflow-hidden rounded-3xl p-6 text-white shadow-2xl shadow-primary-dark/25 md:p-8">
-          <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 left-1/3 h-72 w-72 rounded-full bg-accent/25 blur-3xl" />
-          <div className="pointer-events-none absolute right-1/4 top-1/3 h-24 w-24 rounded-full border border-accent/25" />
 
           <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="min-w-0">
