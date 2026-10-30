@@ -11,7 +11,6 @@ export default function AuthLayout({
       <aside className="hero-gradient relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden p-12 text-white lg:flex">
         <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-accent/20 blur-3xl" />
-        <div className="pointer-events-none absolute right-12 top-1/3 h-28 w-28 rounded-full border border-accent/20" />
 
         <div className="relative flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/12 ring-1 ring-white/20 backdrop-blur">
