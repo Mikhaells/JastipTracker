@@ -1,51 +1,43 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { getExchangeRate } from "@/lib/exchange";
 
 async function getOrderWithOwnership(orderId: string, userId: string) {
-  const db = await getPool();
-  const result = await db
-    .request()
-    .input("id", orderId)
-    .input("userId", userId)
-    .query(`
-      SELECT o.* FROM [Order] o
-      JOIN Trip t ON o.tripId = t.id
-      WHERE o.id = @id AND t.userId = @userId
-    `);
-  return result.recordset[0];
+  const result = await queryOne(
+    `SELECT o.* FROM "Order" o
+     JOIN "Trip" t ON o."tripId" = t."id"
+     WHERE o."id" = $1 AND t."userId" = $2`,
+    [orderId, userId]
+  );
+  return result;
 }
 
 async function getOrderFull(orderId: string) {
-  const db = await getPool();
-  const orderResult = await db
-    .request()
-    .input("id", orderId)
-    .query(`
-      SELECT o.*, s.name AS stopName, s.latitude AS stopLatitude, s.longitude AS stopLongitude
-      FROM [Order] o
-      LEFT JOIN TripStop s ON o.stopId = s.id
-      WHERE o.id = @id
-    `);
+  const order = await queryOne(
+    `SELECT o.*, s."name" AS "stopName", s."latitude" AS "stopLatitude", s."longitude" AS "stopLongitude"
+     FROM "Order" o
+     LEFT JOIN "TripStop" s ON o."stopId" = s."id"
+     WHERE o."id" = $1`,
+    [orderId]
+  );
 
-  const order = orderResult.recordset[0];
   if (!order) return null;
 
-  const itemsResult = await db
-    .request()
-    .input("orderId", orderId)
-    .query("SELECT * FROM OrderItem WHERE orderId = @orderId");
+  const items = await query(
+    `SELECT * FROM "OrderItem" WHERE "orderId" = $1`,
+    [orderId]
+  );
 
-  const customerResult = await db
-    .request()
-    .input("customerId", order.customerId)
-    .query("SELECT * FROM Customer WHERE id = @customerId");
+  const customer = await queryOne(
+    `SELECT * FROM "Customer" WHERE "id" = $1`,
+    [order.customerId]
+  );
 
   return {
     ...order,
-    items: itemsResult.recordset,
-    customer: customerResult.recordset[0],
+    items,
+    customer,
     stop: order.stopId
       ? {
           id: order.stopId,
@@ -99,14 +91,12 @@ export async function PATCH(
   }
 
   if (body.status) {
-    const db = await getPool();
-    const tripResult = await db
-      .request()
-      .input("tripId", order.tripId)
-      .query("SELECT status FROM Trip WHERE id = @tripId");
+    const trip = await queryOne<{ status: string }>(
+      `SELECT "status" FROM "Trip" WHERE "id" = $1`,
+      [order.tripId]
+    );
 
-    const tripStatus = tripResult.recordset[0]?.status;
-    if (tripStatus !== "PLANNING" && tripStatus !== "ONGOING") {
+    if (trip?.status !== "PLANNING" && trip?.status !== "ONGOING") {
       return NextResponse.json(
         {
           error:
@@ -116,49 +106,47 @@ export async function PATCH(
       );
     }
 
-    await db
-      .request()
-      .input("id", id)
-      .input("status", body.status)
-      .query("UPDATE [Order] SET status = @status WHERE id = @id");
+    await query(
+      `UPDATE "Order" SET "status" = $1 WHERE "id" = $2`,
+      [body.status, id]
+    );
 
     const updated = await getOrderFull(id);
     return NextResponse.json(updated);
   }
 
   const fields: string[] = [];
-  const db = await getPool();
-  const req2 = db.request().input("id", id);
+  const values: unknown[] = [];
+
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    fields.push(`"${column}" = $${values.length}`);
+  };
 
   if (body.customerId !== undefined) {
-    const customerCheck = await db
-      .request()
-      .input("customerId", body.customerId)
-      .input("userId", session.user.id)
-      .query(
-        "SELECT id FROM Customer WHERE id = @customerId AND userId = @userId"
-      );
+    const customerCheck = await queryOne<{ id: string }>(
+      `SELECT "id" FROM "Customer" WHERE "id" = $1 AND "userId" = $2`,
+      [body.customerId, session.user.id]
+    );
 
-    if (!customerCheck.recordset[0]) {
+    if (!customerCheck) {
       return NextResponse.json(
         { error: "Customer tidak ditemukan" },
         { status: 400 }
       );
     }
 
-    fields.push("customerId = @customerId");
-    req2.input("customerId", body.customerId);
+    set("customerId", body.customerId);
   }
 
   if (body.stopId !== undefined) {
     if (body.stopId) {
-      const stopCheck = await db
-        .request()
-        .input("stopId", body.stopId)
-        .input("tripId", order.tripId)
-        .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
+      const stopCheck = await queryOne<{ id: string }>(
+        `SELECT "id" FROM "TripStop" WHERE "id" = $1 AND "tripId" = $2`,
+        [body.stopId, order.tripId]
+      );
 
-      if (!stopCheck.recordset[0]) {
+      if (!stopCheck) {
         return NextResponse.json(
           { error: "Tempat tidak ditemukan pada trip ini" },
           { status: 400 }
@@ -166,51 +154,47 @@ export async function PATCH(
       }
     }
 
-    fields.push("stopId = @stopId");
-    req2.input("stopId", body.stopId || null);
+    set("stopId", body.stopId || null);
   }
 
   if (body.notes !== undefined) {
-    fields.push("notes = @notes");
-    req2.input("notes", body.notes);
-  }
-  if (body.receiptUrl !== undefined) {
-    fields.push("receiptUrl = @receiptUrl");
-    req2.input("receiptUrl", body.receiptUrl);
+    set("notes", body.notes);
   }
 
   // Replace items only after all ownership/validation checks have passed.
   if (body.items) {
-    await db
-      .request()
-      .input("orderId", id)
-      .query("DELETE FROM OrderItem WHERE orderId = @orderId");
+    await query(`DELETE FROM "OrderItem" WHERE "orderId" = $1`, [id]);
 
     for (const item of body.items) {
       const rate = await getExchangeRate(item.currency, "IDR");
       const unitPriceIDR = item.unitPriceForeign * rate;
       const totalIDR = unitPriceIDR * (item.quantity || 1);
 
-      await db
-        .request()
-        .input("orderId", id)
-        .input("itemName", item.itemName)
-        .input("quantity", item.quantity || 1)
-        .input("unitPriceForeign", item.unitPriceForeign)
-        .input("currency", item.currency)
-        .input("unitPriceIDR", unitPriceIDR)
-        .input("totalIDR", totalIDR)
-        .input("margin", item.margin || 0)
-        .input("notes", item.notes || null)
-        .query(`
-          INSERT INTO OrderItem (id, orderId, itemName, quantity, unitPriceForeign, currency, unitPriceIDR, totalIDR, margin, notes)
-          VALUES (NEWID(), @orderId, @itemName, @quantity, @unitPriceForeign, @currency, @unitPriceIDR, @totalIDR, @margin, @notes)
-        `);
+      await query(
+        `INSERT INTO "OrderItem" ("id", "orderId", "itemName", "quantity", "unitPriceForeign",
+           "currency", "unitPriceIDR", "totalIDR", "margin", "notes")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          id,
+          item.itemName,
+          item.quantity || 1,
+          item.unitPriceForeign,
+          item.currency,
+          unitPriceIDR,
+          totalIDR,
+          item.margin || 0,
+          item.notes || null,
+        ]
+      );
     }
   }
 
   if (fields.length > 0) {
-    await req2.query(`UPDATE [Order] SET ${fields.join(", ")} WHERE id = @id`);
+    values.push(id);
+    await query(
+      `UPDATE "Order" SET ${fields.join(", ")} WHERE "id" = $${values.length}`,
+      values
+    );
   }
 
   const updated = await getOrderFull(id);
@@ -233,8 +217,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Order tidak ditemukan" }, { status: 404 });
   }
 
-  const db = await getPool();
-  await db.request().input("id", id).query("DELETE FROM [Order] WHERE id = @id");
+  await query(`DELETE FROM "Order" WHERE "id" = $1`, [id]);
 
   return NextResponse.json({ success: true });
 }

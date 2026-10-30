@@ -96,7 +96,6 @@ interface Order {
   id: string;
   status: string;
   notes: string | null;
-  receiptUrl: string | null;
   createdAt: string;
   customer: { id: string; name: string };
   stop: { id: string; name: string } | null;
@@ -938,17 +937,6 @@ export default function TripDetailPage() {
                           </div>
                         ))}
                       </div>
-
-                      {order.receiptUrl && (
-                        <a
-                          href={order.receiptUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-dark"
-                        >
-                          Lihat Struk
-                        </a>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-4 border-t border-border/70 bg-white/50 px-5 py-2.5">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query } from "@/lib/db";
 
 export async function GET() {
   const session = await auth();
@@ -8,22 +8,24 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = await getPool();
-  const result = await db
-    .request()
-    .input("userId", session.user.id)
-    .query(`
-      SELECT c.*, (SELECT COUNT(*) FROM [Order] o WHERE o.customerId = c.id) AS orderCount
-      FROM Customer c
-      WHERE c.userId = @userId
-      ORDER BY c.createdAt DESC
-    `);
+  const rows = await query(
+    `SELECT c.*, COALESCE(o."orderCount", 0)::int AS "orderCount"
+     FROM "Customer" c
+     LEFT JOIN (
+       SELECT "customerId", COUNT(*) AS "orderCount" FROM "Order" GROUP BY "customerId"
+     ) o ON o."customerId" = c."id"
+     WHERE c."userId" = $1
+     ORDER BY c."createdAt" DESC`,
+    [session.user.id]
+  );
 
-  const customers = result.recordset.map((c: Record<string, unknown>) => ({
-    ...c,
-    _count: { orders: c.orderCount },
-    orderCount: undefined,
-  }));
+  const customers = rows.map((row) => {
+    const { orderCount, ...customer } = row;
+    return {
+      ...customer,
+      _count: { orders: orderCount as number },
+    };
+  });
 
   return NextResponse.json(customers);
 }
@@ -43,19 +45,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = await getPool();
-  const result = await db
-    .request()
-    .input("userId", session.user.id)
-    .input("name", name)
-    .input("phone", phone || null)
-    .input("email", email || null)
-    .input("notes", notes || null)
-    .query(`
-      INSERT INTO Customer (id, userId, name, phone, email, notes, createdAt)
-      OUTPUT INSERTED.*
-      VALUES (NEWID(), @userId, @name, @phone, @email, @notes, GETDATE())
-    `);
+  const customer = await query(
+    `INSERT INTO "Customer" ("id", "userId", "name", "phone", "email", "notes", "createdAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now())
+     RETURNING *`,
+    [session.user.id, name, phone || null, email || null, notes || null]
+  );
 
-  return NextResponse.json(result.recordset[0]);
+  return NextResponse.json(customer[0]);
 }

@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  Upload,
   Search,
   LoaderCircle,
   MapPin,
@@ -76,7 +75,6 @@ export default function AddOrderPage() {
   ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetch("/api/customers")
@@ -231,21 +229,6 @@ export default function AddOrderPage() {
     setLoading(true);
 
     try {
-      let receiptUrl: string | null = null;
-
-      if (receiptFile) {
-        const formData = new FormData();
-        formData.append("file", receiptFile);
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          receiptUrl = uploadData.url;
-        }
-      }
-
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,16 +252,6 @@ export default function AddOrderPage() {
         const data = await res.json();
         setError(data.error || "Gagal membuat order");
         return;
-      }
-
-      const order = await res.json();
-
-      if (receiptUrl) {
-        await fetch(`/api/orders/${order.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receiptUrl }),
-        });
       }
 
       router.push(`/trips/${tripId}`);
@@ -552,22 +525,6 @@ export default function AddOrderPage() {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="surface-card p-5">
-          <label className="form-label mb-2">Struk / Bukti Pembayaran</label>
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-white/50 px-3 py-5 transition-colors hover:border-primary/40 hover:bg-indigo-50/40">
-            <Upload size={18} className="text-muted" />
-            <span className="text-sm text-muted">
-              {receiptFile ? receiptFile.name : "Upload foto struk"}
-            </span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic"
-              onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-              className="hidden"
-            />
-          </label>
         </div>
 
         <div className="surface-card p-5">

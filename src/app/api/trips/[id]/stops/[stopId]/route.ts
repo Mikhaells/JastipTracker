@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 
-async function verifyTripOwner(
-  db: Awaited<ReturnType<typeof getPool>>,
-  tripId: string,
-  userId: string
-) {
-  const res = await db
-    .request()
-    .input("id", tripId)
-    .input("userId", userId)
-    .query("SELECT id FROM Trip WHERE id = @id AND userId = @userId");
-  return res.recordset[0];
+async function verifyTripOwner(tripId: string, userId: string) {
+  return queryOne<{ id: string }>(
+    `SELECT "id" FROM "Trip" WHERE "id" = $1 AND "userId" = $2`,
+    [tripId, userId]
+  );
 }
 
 export async function PATCH(
@@ -27,53 +21,43 @@ export async function PATCH(
   const { id, stopId } = await params;
   const body = await req.json();
 
-  const db = await getPool();
-  const trip = await verifyTripOwner(db, id, session.user.id);
+  const trip = await verifyTripOwner(id, session.user.id);
   if (!trip) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
 
-  const stopCheck = await db
-    .request()
-    .input("stopId", stopId)
-    .input("tripId", id)
-    .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
-  if (!stopCheck.recordset[0]) {
+  const stopCheck = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "TripStop" WHERE "id" = $1 AND "tripId" = $2`,
+    [stopId, id]
+  );
+  if (!stopCheck) {
     return NextResponse.json({ error: "Stop tidak ditemukan" }, { status: 404 });
   }
 
   const fields: string[] = [];
-  const req2 = db.request().input("stopId", stopId);
+  const values: unknown[] = [];
 
-  if (body.name !== undefined) {
-    fields.push("name = @name");
-    req2.input("name", body.name);
-  }
-  if (body.latitude !== undefined) {
-    fields.push("latitude = @latitude");
-    req2.input("latitude", body.latitude);
-  }
-  if (body.longitude !== undefined) {
-    fields.push("longitude = @longitude");
-    req2.input("longitude", body.longitude);
-  }
-  if (body.orderIndex !== undefined) {
-    fields.push("orderIndex = @orderIndex");
-    req2.input("orderIndex", body.orderIndex);
-  }
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    fields.push(`"${column}" = $${values.length}`);
+  };
+
+  if (body.name !== undefined) set("name", body.name);
+  if (body.latitude !== undefined) set("latitude", body.latitude);
+  if (body.longitude !== undefined) set("longitude", body.longitude);
+  if (body.orderIndex !== undefined) set("orderIndex", body.orderIndex);
 
   if (fields.length === 0) {
     return NextResponse.json({ error: "Tidak ada data yang diupdate" }, { status: 400 });
   }
 
-  await req2.query(`UPDATE TripStop SET ${fields.join(", ")} WHERE id = @stopId`);
+  values.push(stopId);
+  const updated = await query(
+    `UPDATE "TripStop" SET ${fields.join(", ")} WHERE "id" = $${values.length} RETURNING *`,
+    values
+  );
 
-  const updated = await db
-    .request()
-    .input("stopId", stopId)
-    .query("SELECT * FROM TripStop WHERE id = @stopId");
-
-  return NextResponse.json(updated.recordset[0]);
+  return NextResponse.json(updated[0]);
 }
 
 export async function DELETE(
@@ -86,27 +70,22 @@ export async function DELETE(
   }
 
   const { id, stopId } = await params;
-  const db = await getPool();
-  const trip = await verifyTripOwner(db, id, session.user.id);
+
+  const trip = await verifyTripOwner(id, session.user.id);
   if (!trip) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
 
-  const stopCheck = await db
-    .request()
-    .input("stopId", stopId)
-    .input("tripId", id)
-    .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
-  if (!stopCheck.recordset[0]) {
+  const stopCheck = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "TripStop" WHERE "id" = $1 AND "tripId" = $2`,
+    [stopId, id]
+  );
+  if (!stopCheck) {
     return NextResponse.json({ error: "Stop tidak ditemukan" }, { status: 404 });
   }
 
-  await db
-    .request()
-    .input("stopId", stopId)
-    .query("UPDATE [Order] SET stopId = NULL WHERE stopId = @stopId");
-
-  await db.request().input("stopId", stopId).query("DELETE FROM TripStop WHERE id = @stopId");
+  await query(`UPDATE "Order" SET "stopId" = NULL WHERE "stopId" = $1`, [stopId]);
+  await query(`DELETE FROM "TripStop" WHERE "id" = $1`, [stopId]);
 
   return NextResponse.json({ success: true });
 }

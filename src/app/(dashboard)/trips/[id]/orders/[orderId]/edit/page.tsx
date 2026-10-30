@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  Upload,
   Search,
   LoaderCircle,
   MapPin,
@@ -40,7 +39,6 @@ interface OrderDetail {
   stopId: string | null;
   status: string;
   notes: string | null;
-  receiptUrl: string | null;
   items: {
     id: string;
     itemName: string;
@@ -94,13 +92,9 @@ export default function EditOrderPage() {
   const [addStopError, setAddStopError] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [items, setItems] = useState<OrderItemInput[]>([emptyItem()]);
-  const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(
-    null
-  );
   const [loadingOrder, setLoadingOrder] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetch(`/api/orders/${orderId}`)
@@ -112,7 +106,6 @@ export default function EditOrderPage() {
         setSelectedCustomer(order.customerId);
         setSelectedStop(order.stopId ?? "");
         setOrderNotes(order.notes ?? "");
-        setExistingReceiptUrl(order.receiptUrl ?? null);
         setItems(
           order.items.length > 0
             ? order.items.map((item) => ({
@@ -276,21 +269,6 @@ export default function EditOrderPage() {
     setLoading(true);
 
     try {
-      let receiptUrl: string | null = existingReceiptUrl;
-
-      if (receiptFile) {
-        const formData = new FormData();
-        formData.append("file", receiptFile);
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          receiptUrl = uploadData.url;
-        }
-      }
-
       const res = await fetch(`/api/orders/${orderId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -298,7 +276,6 @@ export default function EditOrderPage() {
           customerId: selectedCustomer,
           stopId: selectedStop || null,
           notes: orderNotes || null,
-          receiptUrl,
           items: validItems.map((i) => ({
             itemName: i.itemName,
             quantity: i.quantity,
@@ -604,38 +581,6 @@ export default function EditOrderPage() {
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="surface-card p-5">
-            <label className="form-label mb-2">
-              Struk / Bukti Pembayaran
-            </label>
-            {existingReceiptUrl && !receiptFile && (
-              <a
-                href={existingReceiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mb-2 inline-block text-xs font-medium text-primary hover:underline"
-              >
-                Lihat struk saat ini
-              </a>
-            )}
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-white/50 px-3 py-5 transition-colors hover:border-primary/40 hover:bg-indigo-50/40">
-              <Upload size={18} className="text-muted" />
-              <span className="text-sm text-muted">
-                {receiptFile
-                  ? receiptFile.name
-                  : existingReceiptUrl
-                    ? "Ganti foto struk"
-                    : "Upload foto struk"}
-              </span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic"
-                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                className="hidden"
-              />
-            </label>
           </div>
 
           <div className="surface-card p-5">

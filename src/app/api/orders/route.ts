@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { getExchangeRate } from "@/lib/exchange";
 
 export async function POST(req: Request) {
@@ -18,25 +18,22 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = await getPool();
-  const tripCheck = await db
-    .request()
-    .input("tripId", tripId)
-    .input("userId", session.user.id)
-    .query("SELECT id FROM Trip WHERE id = @tripId AND userId = @userId");
+  const tripCheck = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "Trip" WHERE "id" = $1 AND "userId" = $2`,
+    [tripId, session.user.id]
+  );
 
-  if (!tripCheck.recordset[0]) {
+  if (!tripCheck) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
 
   if (stopId) {
-    const stopCheck = await db
-      .request()
-      .input("stopId", stopId)
-      .input("tripId", tripId)
-      .query("SELECT id FROM TripStop WHERE id = @stopId AND tripId = @tripId");
+    const stopCheck = await queryOne<{ id: string }>(
+      `SELECT "id" FROM "TripStop" WHERE "id" = $1 AND "tripId" = $2`,
+      [stopId, tripId]
+    );
 
-    if (!stopCheck.recordset[0]) {
+    if (!stopCheck) {
       return NextResponse.json(
         { error: "Tempat tidak ditemukan pada trip ini" },
         { status: 400 }
@@ -63,57 +60,54 @@ export async function POST(req: Request) {
     });
   }
 
-  const orderResult = await db
-    .request()
-    .input("tripId", tripId)
-    .input("customerId", customerId)
-    .input("stopId", stopId || null)
-    .input("notes", notes || null)
-    .query(`
-      INSERT INTO [Order] (id, tripId, customerId, stopId, notes, status, createdAt)
-      OUTPUT INSERTED.*
-      VALUES (NEWID(), @tripId, @customerId, @stopId, @notes, 'PENDING', GETDATE())
-    `);
+  const order = await queryOne(
+    `INSERT INTO "Order" ("id", "tripId", "customerId", "stopId", "notes", "status", "createdAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, 'PENDING', now())
+     RETURNING *`,
+    [tripId, customerId, stopId || null, notes || null]
+  );
 
-  const order = orderResult.recordset[0];
-
-  for (const item of processedItems) {
-    await db
-      .request()
-      .input("orderId", order.id)
-      .input("itemName", item.itemName)
-      .input("quantity", item.quantity)
-      .input("unitPriceForeign", item.unitPriceForeign)
-      .input("currency", item.currency)
-      .input("unitPriceIDR", item.unitPriceIDR)
-      .input("totalIDR", item.totalIDR)
-      .input("margin", item.margin)
-      .input("notes", item.notes)
-      .query(`
-        INSERT INTO OrderItem (id, orderId, itemName, quantity, unitPriceForeign, currency, unitPriceIDR, totalIDR, margin, notes)
-        VALUES (NEWID(), @orderId, @itemName, @quantity, @unitPriceForeign, @currency, @unitPriceIDR, @totalIDR, @margin, @notes)
-      `);
+  if (!order) {
+    return NextResponse.json({ error: "Gagal membuat order" }, { status: 500 });
   }
 
-  const itemsResult = await db
-    .request()
-    .input("orderId", order.id)
-    .query("SELECT * FROM OrderItem WHERE orderId = @orderId");
+  for (const item of processedItems) {
+    await query(
+      `INSERT INTO "OrderItem" ("id", "orderId", "itemName", "quantity", "unitPriceForeign",
+         "currency", "unitPriceIDR", "totalIDR", "margin", "notes")
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        order.id,
+        item.itemName,
+        item.quantity,
+        item.unitPriceForeign,
+        item.currency,
+        item.unitPriceIDR,
+        item.totalIDR,
+        item.margin,
+        item.notes,
+      ]
+    );
+  }
 
-  const customerResult = await db
-    .request()
-    .input("customerId", customerId)
-    .query("SELECT * FROM Customer WHERE id = @customerId");
+  const orderItems = await query(
+    `SELECT * FROM "OrderItem" WHERE "orderId" = $1`,
+    [order.id]
+  );
 
-  const stopResult = await db
-    .request()
-    .input("stopId", order.stopId)
-    .query("SELECT * FROM TripStop WHERE id = @stopId");
+  const customer = await queryOne(
+    `SELECT * FROM "Customer" WHERE "id" = $1`,
+    [customerId]
+  );
+
+  const stop = order.stopId
+    ? await queryOne(`SELECT * FROM "TripStop" WHERE "id" = $1`, [order.stopId])
+    : undefined;
 
   return NextResponse.json({
     ...order,
-    items: itemsResult.recordset,
-    customer: customerResult.recordset[0],
-    stop: stopResult.recordset[0] ?? null,
+    items: orderItems,
+    customer,
+    stop: stop ?? null,
   });
 }

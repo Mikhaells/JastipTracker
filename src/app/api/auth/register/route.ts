@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getPool } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 
 export async function POST(req: Request) {
   try {
@@ -13,13 +13,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const db = await getPool();
-    const existing = await db
-      .request()
-      .input("email", email)
-      .query("SELECT id FROM [User] WHERE email = @email");
+    const existing = await queryOne<{ id: string }>(
+      `SELECT "id" FROM "User" WHERE "email" = $1`,
+      [email]
+    );
 
-    if (existing.recordset[0]) {
+    if (existing) {
       return NextResponse.json(
         { error: "Email sudah terdaftar" },
         { status: 409 }
@@ -28,16 +27,19 @@ export async function POST(req: Request) {
 
     const hashed = await bcrypt.hash(password, 12);
 
-    const result = await db
-      .request()
-      .input("email", email)
-      .input("password", hashed)
-      .input("name", name)
-      .query(
-        "        INSERT INTO [User] (id, email, password, name, createdAt) OUTPUT INSERTED.id, INSERTED.email, INSERTED.name VALUES (NEWID(), @email, @password, @name, GETDATE())"
-      );
+    const user = await queryOne<{ id: string; email: string; name: string }>(
+      `INSERT INTO "User" ("id", "email", "password", "name", "createdAt")
+       VALUES (gen_random_uuid(), $1, $2, $3, now())
+       RETURNING "id", "email", "name"`,
+      [email, hashed, name]
+    );
 
-    const user = result.recordset[0];
+    if (!user) {
+      return NextResponse.json(
+        { error: "Gagal membuat akun" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       id: user.id,

@@ -1,4 +1,4 @@
-import { getPool } from "./db";
+import { query, queryOne } from "./db";
 
 const EXCHANGE_API = "https://api.frankfurter.dev/v1/latest";
 
@@ -8,20 +8,16 @@ export async function getExchangeRate(
 ): Promise<number> {
   if (from === to) return 1;
 
-  const db = await getPool();
-  const cached = await db
-    .request()
-    .input("base", from)
-    .input("target", to)
-    .query(
-      "SELECT rate, fetchedAt FROM CurrencyRate WHERE baseCurrency = @base AND targetCurrency = @target"
-    );
+  const cached = await queryOne<{ rate: number; fetchedAt: Date }>(
+    `SELECT "rate", "fetchedAt" FROM "CurrencyRate"
+     WHERE "baseCurrency" = $1 AND "targetCurrency" = $2`,
+    [from, to]
+  );
 
-  if (cached.recordset[0]) {
-    const row = cached.recordset[0];
-    const ageMs = Date.now() - new Date(row.fetchedAt).getTime();
+  if (cached) {
+    const ageMs = Date.now() - new Date(cached.fetchedAt).getTime();
     if (ageMs < 60 * 60 * 1000) {
-      return row.rate;
+      return cached.rate;
     }
   }
 
@@ -32,19 +28,13 @@ export async function getExchangeRate(
 
   if (!rate) throw new Error(`Rate not found for ${from} → ${to}`);
 
-  await db
-    .request()
-    .input("base", from)
-    .input("target", to)
-    .input("rate", rate)
-    .input("now", new Date())
-    .query(`
-      IF EXISTS (SELECT 1 FROM CurrencyRate WHERE baseCurrency = @base AND targetCurrency = @target)
-        UPDATE CurrencyRate SET rate = @rate, fetchedAt = @now WHERE baseCurrency = @base AND targetCurrency = @target
-      ELSE
-        INSERT INTO CurrencyRate (id, baseCurrency, targetCurrency, rate, fetchedAt)
-        VALUES (NEWID(), @base, @target, @rate, @now)
-    `);
+  await query(
+    `INSERT INTO "CurrencyRate" ("id", "baseCurrency", "targetCurrency", "rate", "fetchedAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4)
+     ON CONFLICT ("baseCurrency", "targetCurrency")
+     DO UPDATE SET "rate" = EXCLUDED."rate", "fetchedAt" = EXCLUDED."fetchedAt"`,
+    [from, to, rate, new Date()]
+  );
 
   return rate;
 }

@@ -1,35 +1,58 @@
-import sql from "mssql";
+import { Pool, type QueryResultRow } from "pg";
 
-const useWindowsAuth = !process.env.DB_USER;
-
-const config: sql.config = {
-  server: process.env.DB_SERVER || "localhost",
-  database: process.env.DB_NAME || "jastip_tracker",
-  ...(useWindowsAuth
-    ? {}
-    : {
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-      }),
-  options: {
-    encrypt: process.env.DB_ENCRYPT === "true",
-    trustServerCertificate: process.env.DB_TRUST === "true",
-    ...(useWindowsAuth ? { trustedConnection: true } : {}),
-  },
+const globalForDb = globalThis as unknown as {
+  pgPool: Pool | undefined;
 };
 
-const globalForPool = globalThis as unknown as {
-  pool: sql.ConnectionPool | undefined;
-};
+function createPool(): Pool {
+  const connectionString = process.env.DATABASE_URL;
 
-if (!globalForPool.pool) {
-  globalForPool.pool = new sql.ConnectionPool(config);
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL belum diset. Contoh: postgresql://user:password@host/db?sslmode=require"
+    );
+  }
+
+  const url = new URL(connectionString);
+  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  const sslDisabled = url.searchParams.get("sslmode") === "disable";
+
+  return new Pool({
+    connectionString,
+    // Serverless: tiap instance punya pool sendiri, jadi jangan terlalu besar.
+    max: Number(process.env.DB_POOL_MAX ?? 5),
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 15_000,
+    ssl:
+      isLocal || sslDisabled ? undefined : { rejectUnauthorized: false },
+  });
 }
 
-export async function getPool(): Promise<sql.ConnectionPool> {
-  const p = globalForPool.pool!;
-  if (!p.connected) {
-    await p.connect();
+export function getPool(): Pool {
+  if (!globalForDb.pgPool) {
+    globalForDb.pgPool = createPool();
   }
-  return p;
+
+  return globalForDb.pgPool;
+}
+
+/**
+ * Jalankan query dan kembalikan baris hasilnya.
+ * Gunakan placeholder posisional (`$1`, `$2`, ...) — bukan `@nama` seperti SQL Server.
+ */
+export async function query<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: unknown[] = []
+): Promise<T[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await getPool().query<T>(text, params as any[]);
+  return result.rows;
+}
+
+export async function queryOne<T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params: unknown[] = []
+): Promise<T | undefined> {
+  const rows = await query<T>(text, params);
+  return rows[0];
 }

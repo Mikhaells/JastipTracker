@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 
 export async function GET(
   _req: Request,
@@ -13,35 +13,30 @@ export async function GET(
 
   const { id } = await params;
 
-  const db = await getPool();
-  const customerResult = await db
-    .request()
-    .input("id", id)
-    .input("userId", session.user.id)
-    .query("SELECT * FROM Customer WHERE id = @id AND userId = @userId");
+  const customer = await queryOne(
+    `SELECT * FROM "Customer" WHERE "id" = $1 AND "userId" = $2`,
+    [id, session.user.id]
+  );
 
-  const customer = customerResult.recordset[0];
   if (!customer) {
     return NextResponse.json({ error: "Customer tidak ditemukan" }, { status: 404 });
   }
 
-  const ordersResult = await db
-    .request()
-    .input("customerId", id)
-    .query(`
-      SELECT o.*, t.name AS tripName, t.country AS tripCountry
-      FROM [Order] o
-      JOIN Trip t ON o.tripId = t.id
-      WHERE o.customerId = @customerId
-      ORDER BY o.createdAt DESC
-    `);
+  const orderRows = await query(
+    `SELECT o.*, t."name" AS "tripName", t."country" AS "tripCountry"
+     FROM "Order" o
+     JOIN "Trip" t ON o."tripId" = t."id"
+     WHERE o."customerId" = $1
+     ORDER BY o."createdAt" DESC`,
+    [id]
+  );
 
   const orders = [];
-  for (const order of ordersResult.recordset) {
-    const itemsResult = await db
-      .request()
-      .input("orderId", order.id)
-      .query("SELECT * FROM OrderItem WHERE orderId = @orderId");
+  for (const order of orderRows) {
+    const items = await query(
+      `SELECT * FROM "OrderItem" WHERE "orderId" = $1`,
+      [order.id]
+    );
 
     orders.push({
       ...order,
@@ -50,7 +45,7 @@ export async function GET(
         name: order.tripName,
         country: order.tripCountry,
       },
-      items: itemsResult.recordset,
+      items,
     });
   }
 
@@ -69,49 +64,39 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
 
-  const db = await getPool();
-  const customerCheck = await db
-    .request()
-    .input("id", id)
-    .input("userId", session.user.id)
-    .query("SELECT id FROM Customer WHERE id = @id AND userId = @userId");
+  const customerCheck = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "Customer" WHERE "id" = $1 AND "userId" = $2`,
+    [id, session.user.id]
+  );
 
-  if (!customerCheck.recordset[0]) {
+  if (!customerCheck) {
     return NextResponse.json({ error: "Customer tidak ditemukan" }, { status: 404 });
   }
 
   const fields: string[] = [];
-  const req2 = db.request().input("id", id);
+  const values: unknown[] = [];
 
-  if (body.name !== undefined) {
-    fields.push("name = @name");
-    req2.input("name", body.name);
-  }
-  if (body.phone !== undefined) {
-    fields.push("phone = @phone");
-    req2.input("phone", body.phone);
-  }
-  if (body.email !== undefined) {
-    fields.push("email = @email");
-    req2.input("email", body.email);
-  }
-  if (body.notes !== undefined) {
-    fields.push("notes = @notes");
-    req2.input("notes", body.notes);
-  }
+  const set = (column: string, value: unknown) => {
+    values.push(value);
+    fields.push(`"${column}" = $${values.length}`);
+  };
+
+  if (body.name !== undefined) set("name", body.name);
+  if (body.phone !== undefined) set("phone", body.phone);
+  if (body.email !== undefined) set("email", body.email);
+  if (body.notes !== undefined) set("notes", body.notes);
 
   if (fields.length === 0) {
     return NextResponse.json({ error: "Tidak ada data yang diupdate" }, { status: 400 });
   }
 
-  await req2.query(`UPDATE Customer SET ${fields.join(", ")} WHERE id = @id`);
+  values.push(id);
+  const updated = await query(
+    `UPDATE "Customer" SET ${fields.join(", ")} WHERE "id" = $${values.length} RETURNING *`,
+    values
+  );
 
-  const updated = await db
-    .request()
-    .input("id", id)
-    .query("SELECT * FROM Customer WHERE id = @id");
-
-  return NextResponse.json(updated.recordset[0]);
+  return NextResponse.json(updated[0]);
 }
 
 export async function DELETE(
@@ -125,23 +110,21 @@ export async function DELETE(
 
   const { id } = await params;
 
-  const db = await getPool();
-  const customerCheck = await db
-    .request()
-    .input("id", id)
-    .input("userId", session.user.id)
-    .query("SELECT id FROM Customer WHERE id = @id AND userId = @userId");
+  const customerCheck = await queryOne<{ id: string }>(
+    `SELECT "id" FROM "Customer" WHERE "id" = $1 AND "userId" = $2`,
+    [id, session.user.id]
+  );
 
-  if (!customerCheck.recordset[0]) {
+  if (!customerCheck) {
     return NextResponse.json({ error: "Customer tidak ditemukan" }, { status: 404 });
   }
 
-  const orderCount = await db
-    .request()
-    .input("customerId", id)
-    .query("SELECT COUNT(*) AS orderCount FROM [Order] WHERE customerId = @customerId");
+  const orderCount = await queryOne<{ orderCount: number }>(
+    `SELECT COUNT(*)::int AS "orderCount" FROM "Order" WHERE "customerId" = $1`,
+    [id]
+  );
 
-  const count = orderCount.recordset[0]?.orderCount ?? 0;
+  const count = orderCount?.orderCount ?? 0;
   if (count > 0) {
     return NextResponse.json(
       {
@@ -151,7 +134,7 @@ export async function DELETE(
     );
   }
 
-  await db.request().input("id", id).query("DELETE FROM Customer WHERE id = @id");
+  await query(`DELETE FROM "Customer" WHERE "id" = $1`, [id]);
 
   return NextResponse.json({ success: true });
 }

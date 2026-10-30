@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { getPool } from "./db";
+import { queryOne } from "./db";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -13,13 +13,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const db = await getPool();
-        const result = await db
-          .request()
-          .input("email", credentials.email as string)
-          .query("SELECT id, email, password, name FROM [User] WHERE email = @email");
+        const user = await queryOne<{
+          id: string;
+          email: string;
+          password: string;
+          name: string;
+        }>(
+          `SELECT "id", "email", "password", "name" FROM "User" WHERE "email" = $1`,
+          [credentials.email as string]
+        );
 
-        const user = result.recordset[0];
         if (!user) return null;
 
         const valid = await bcrypt.compare(

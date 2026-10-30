@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query } from "@/lib/db";
 
 export async function GET() {
   const session = await auth();
@@ -8,22 +8,24 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = await getPool();
-  const result = await db
-    .request()
-    .input("userId", session.user.id)
-    .query(`
-      SELECT t.*, (SELECT COUNT(*) FROM [Order] o WHERE o.tripId = t.id) AS orderCount
-      FROM Trip t
-      WHERE t.userId = @userId
-      ORDER BY t.createdAt DESC
-    `);
+  const rows = await query(
+    `SELECT t.*, COALESCE(o."orderCount", 0)::int AS "orderCount"
+     FROM "Trip" t
+     LEFT JOIN (
+       SELECT "tripId", COUNT(*) AS "orderCount" FROM "Order" GROUP BY "tripId"
+     ) o ON o."tripId" = t."id"
+     WHERE t."userId" = $1
+     ORDER BY t."createdAt" DESC`,
+    [session.user.id]
+  );
 
-  const trips = result.recordset.map((t: Record<string, unknown>) => ({
-    ...t,
-    _count: { orders: t.orderCount },
-    orderCount: undefined,
-  }));
+  const trips = rows.map((row) => {
+    const { orderCount, ...trip } = row;
+    return {
+      ...trip,
+      _count: { orders: orderCount as number },
+    };
+  });
 
   return NextResponse.json(trips);
 }
@@ -43,19 +45,18 @@ export async function POST(req: Request) {
     );
   }
 
-  const db = await getPool();
-  const result = await db
-    .request()
-    .input("userId", session.user.id)
-    .input("name", name)
-    .input("country", country)
-    .input("startDate", new Date(startDate))
-    .input("endDate", endDate ? new Date(endDate) : null)
-    .query(`
-      INSERT INTO Trip (id, userId, name, country, startDate, endDate, status, createdAt)
-      OUTPUT INSERTED.*
-      VALUES (NEWID(), @userId, @name, @country, @startDate, @endDate, 'PLANNING', GETDATE())
-    `);
+  const trip = await query(
+    `INSERT INTO "Trip" ("id", "userId", "name", "country", "startDate", "endDate", "status", "createdAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'PLANNING', now())
+     RETURNING *`,
+    [
+      session.user.id,
+      name,
+      country,
+      new Date(startDate),
+      endDate ? new Date(endDate) : null,
+    ]
+  );
 
-  return NextResponse.json(result.recordset[0]);
+  return NextResponse.json(trip[0]);
 }

@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPool } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 
-async function verifyTripOwner(db: Awaited<ReturnType<typeof getPool>>, tripId: string, userId: string) {
-  const res = await db
-    .request()
-    .input("id", tripId)
-    .input("userId", userId)
-    .query("SELECT id FROM Trip WHERE id = @id AND userId = @userId");
-  return res.recordset[0];
+async function verifyTripOwner(tripId: string, userId: string) {
+  return queryOne<{ id: string }>(
+    `SELECT "id" FROM "Trip" WHERE "id" = $1 AND "userId" = $2`,
+    [tripId, userId]
+  );
 }
 
 export async function GET(
@@ -21,20 +19,17 @@ export async function GET(
   }
 
   const { id } = await params;
-  const db = await getPool();
-  const trip = await verifyTripOwner(db, id, session.user.id);
+  const trip = await verifyTripOwner(id, session.user.id);
   if (!trip) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
 
-  const result = await db
-    .request()
-    .input("tripId", id)
-    .query(
-      "SELECT * FROM TripStop WHERE tripId = @tripId ORDER BY orderIndex ASC, createdAt ASC"
-    );
+  const stops = await query(
+    `SELECT * FROM "TripStop" WHERE "tripId" = $1 ORDER BY "orderIndex" ASC, "createdAt" ASC`,
+    [id]
+  );
 
-  return NextResponse.json(result.recordset);
+  return NextResponse.json(stops);
 }
 
 export async function POST(
@@ -56,30 +51,23 @@ export async function POST(
     );
   }
 
-  const db = await getPool();
-  const trip = await verifyTripOwner(db, id, session.user.id);
+  const trip = await verifyTripOwner(id, session.user.id);
   if (!trip) {
     return NextResponse.json({ error: "Trip tidak ditemukan" }, { status: 404 });
   }
 
-  const maxResult = await db
-    .request()
-    .input("tripId", id)
-    .query("SELECT ISNULL(MAX(orderIndex), -1) AS maxIndex FROM TripStop WHERE tripId = @tripId");
-  const nextIndex = (maxResult.recordset[0] as { maxIndex: number }).maxIndex + 1;
+  const maxResult = await queryOne<{ maxIndex: number }>(
+    `SELECT COALESCE(MAX("orderIndex"), -1) AS "maxIndex" FROM "TripStop" WHERE "tripId" = $1`,
+    [id]
+  );
+  const nextIndex = (maxResult?.maxIndex ?? -1) + 1;
 
-  const result = await db
-    .request()
-    .input("tripId", id)
-    .input("name", name)
-    .input("latitude", latitude)
-    .input("longitude", longitude)
-    .input("orderIndex", nextIndex)
-    .query(`
-      INSERT INTO TripStop (id, tripId, name, latitude, longitude, orderIndex, createdAt)
-      OUTPUT INSERTED.*
-      VALUES (NEWID(), @tripId, @name, @latitude, @longitude, @orderIndex, GETDATE())
-    `);
+  const stop = await query(
+    `INSERT INTO "TripStop" ("id", "tripId", "name", "latitude", "longitude", "orderIndex", "createdAt")
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, now())
+     RETURNING *`,
+    [id, name, latitude, longitude, nextIndex]
+  );
 
-  return NextResponse.json(result.recordset[0]);
+  return NextResponse.json(stop[0]);
 }
