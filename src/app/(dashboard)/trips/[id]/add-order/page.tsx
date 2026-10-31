@@ -37,7 +37,7 @@ interface OrderItemInput {
   quantity: number;
   unitPriceForeign: number;
   currency: string;
-  margin: number;
+  marginPerUnit: number;
   notes: string;
   idrPreview: number;
 }
@@ -68,7 +68,7 @@ export default function AddOrderPage() {
       quantity: 1,
       unitPriceForeign: 0,
       currency: "IDR",
-      margin: 0,
+      marginPerUnit: 0,
       notes: "",
       idrPreview: 0,
     },
@@ -150,7 +150,7 @@ export default function AddOrderPage() {
         quantity: 1,
         unitPriceForeign: 0,
         currency: "IDR",
-        margin: 0,
+        marginPerUnit: 0,
         notes: "",
         idrPreview: 0,
       },
@@ -162,7 +162,10 @@ export default function AddOrderPage() {
   }
 
   const totalIDR = items.reduce((s, i) => s + i.idrPreview * i.quantity, 0);
-  const totalMargin = items.reduce((s, i) => s + i.margin, 0);
+  const totalMargin = items.reduce(
+    (s, i) => s + i.marginPerUnit * i.quantity,
+    0
+  );
 
   function handleStopSearchChange(value: string) {
     setStopSearch(value);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -22,54 +22,9 @@ import {
 } from "lucide-react";
 import { StatusBadge, StatusSelect } from "@/components/StatusBadge";
 import { MoneyIDR, MoneyForeign } from "@/components/Money";
+import { getCountryCode, getDestinationCenter } from "@/lib/destinations";
 
 const TripMap = dynamic(() => import("@/components/TripMap"), { ssr: false });
-
-const COUNTRY_CENTER: Record<string, [number, number]> = {
-  Jepang: [36.2048, 138.2529],
-  "Korea Selatan": [35.9078, 127.7669],
-  Singapura: [1.3521, 103.8198],
-  Malaysia: [4.2105, 101.9758],
-  Thailand: [15.87, 100.9925],
-  "Amerika Serikat": [39.8283, -98.5795],
-  Inggris: [54.7024, -3.2766],
-  Australia: [-25.2744, 133.7751],
-  Jerman: [51.1657, 10.4515],
-  Prancis: [46.2276, 2.2137],
-  "Uni Emirat Arab": [23.4241, 53.8478],
-  "Arab Saudi": [23.8859, 45.0792],
-  "Hong Kong": [22.3193, 114.1694],
-  Taiwan: [23.6978, 120.9605],
-  Tiongkok: [35.8617, 104.1954],
-  Filipina: [12.8797, 121.774],
-  Vietnam: [14.0583, 108.2772],
-  Brunei: [4.5353, 114.7277],
-  Qatar: [25.3548, 51.1839],
-  Kuwait: [29.3117, 47.4818],
-};
-
-const COUNTRY_CODES: Record<string, string> = {
-  Jepang: "jp",
-  "Korea Selatan": "kr",
-  Singapura: "sg",
-  Malaysia: "my",
-  Thailand: "th",
-  "Amerika Serikat": "us",
-  Inggris: "gb",
-  Australia: "au",
-  Jerman: "de",
-  Prancis: "fr",
-  "Uni Emirat Arab": "ae",
-  "Arab Saudi": "sa",
-  "Hong Kong": "hk",
-  Taiwan: "tw",
-  Tiongkok: "cn",
-  Filipina: "ph",
-  Vietnam: "vn",
-  Brunei: "bn",
-  Qatar: "qa",
-  Kuwait: "kw",
-};
 
 interface PlaceResult {
   id: string;
@@ -137,7 +92,9 @@ export default function TripDetailPage() {
     longitude: number;
   } | null>(null);
   const [stopName, setStopName] = useState("");
+  const [resolvingStopName, setResolvingStopName] = useState(false);
   const [savingStop, setSavingStop] = useState(false);
+  const reverseRequestRef = useRef(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [reorderingId, setReorderingId] = useState<string | null>(null);
@@ -156,7 +113,16 @@ export default function TripDetailPage() {
   const [orderStopError, setOrderStopError] = useState("");
   const [statusError, setStatusError] = useState("");
   const [orderStatusError, setOrderStatusError] = useState("");
-  const [showStopList, setShowStopList] = useState(true);
+  const [showStopList, setShowStopList] = useState(false);
+  const tripCountry = trip?.country;
+  const knownCenter = useMemo(
+    () => (tripCountry ? getDestinationCenter(tripCountry) : undefined),
+    [tripCountry]
+  );
+  const [geocodedCenter, setGeocodedCenter] = useState<
+    [number, number] | undefined
+  >();
+  const destinationCenter = knownCenter ?? geocodedCenter;
 
   const fetchTrip = useCallback(() => {
     fetch(`/api/trips/${tripId}`)
@@ -180,6 +146,28 @@ export default function TripDetailPage() {
     fetchStops();
   }, [tripId, fetchTrip, fetchStops]);
 
+  // Center the map on the trip destination. Free-form city input is resolved
+  // through the geocode API since it is not in the known centers map.
+  useEffect(() => {
+    if (!tripCountry || knownCenter) return;
+
+    let cancelled = false;
+    const query = tripCountry.trim();
+    if (query.length < 3) return;
+
+    fetch(`/api/geocode?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || !data[0]) return;
+        setGeocodedCenter([data[0].latitude, data[0].longitude]);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tripCountry, knownCenter]);
+
   useEffect(() => {
     const query = placeQuery.trim();
     if (query.length < 3) return;
@@ -187,7 +175,7 @@ export default function TripDetailPage() {
     let cancelled = false;
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ q: query });
-      const countryCode = trip ? COUNTRY_CODES[trip.country] : undefined;
+      const countryCode = trip ? getCountryCode(trip.country) : null;
       if (countryCode) params.set("country", countryCode);
 
       fetch(`/api/geocode?${params.toString()}`)
@@ -309,6 +297,8 @@ export default function TripDetailPage() {
   // --- Route / stops ---
 
   function toggleAddMode() {
+    reverseRequestRef.current += 1;
+    setResolvingStopName(false);
     setPendingStop(null);
     setStopName("");
     setAddMode((v) => !v);
@@ -316,7 +306,29 @@ export default function TripDetailPage() {
 
   function handleMapClick(latitude: number, longitude: number) {
     if (!addMode) return;
+
     setPendingStop({ latitude, longitude });
+    setStopName("");
+
+    // Reverse geocode the clicked point so the name is already filled in.
+    // The request id prevents a slower, older click from overwriting a newer one.
+    const requestId = ++reverseRequestRef.current;
+    setResolvingStopName(true);
+
+    fetch(`/api/geocode?reverse=1&lat=${latitude}&lon=${longitude}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (reverseRequestRef.current !== requestId) return;
+        if (typeof data?.name === "string" && data.name) {
+          setStopName(data.name);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (reverseRequestRef.current === requestId) {
+          setResolvingStopName(false);
+        }
+      });
   }
 
   function handlePlaceQueryChange(value: string) {
@@ -326,6 +338,8 @@ export default function TripDetailPage() {
   }
 
   function selectPlace(place: PlaceResult) {
+    reverseRequestRef.current += 1;
+    setResolvingStopName(false);
     setPendingStop({ latitude: place.latitude, longitude: place.longitude });
     setStopName(place.name);
     setAddMode(true);
@@ -348,9 +362,11 @@ export default function TripDetailPage() {
           longitude: pendingStop.longitude,
         }),
       });
+      reverseRequestRef.current += 1;
+      setResolvingStopName(false);
       setPendingStop(null);
       setStopName("");
-      setAddMode(false);
+      // Keep add mode active so the user can tag several places in a row.
       fetchStops();
     } finally {
       setSavingStop(false);
@@ -555,8 +571,9 @@ export default function TripDetailPage() {
 
         {addMode && (
           <p className="mb-2.5 rounded-xl border border-indigo-100 bg-indigo-50/80 px-3.5 py-2.5 text-xs leading-relaxed text-indigo-700">
-            Cari tempat di atas atau klik pada peta untuk menempatkan penanda
-            titik yang akan dilewati.
+            Klik langsung pada peta untuk menandai tempat — nama akan terisi
+            otomatis dan bisa diedit. Setelah disimpan, klik peta lagi untuk
+            menambah tempat berikutnya tanpa keluar dari mode ini.
           </p>
         )}
 
@@ -567,7 +584,7 @@ export default function TripDetailPage() {
             pending={pendingStop}
             focus={mapFocus}
             onMapClick={handleMapClick}
-            center={COUNTRY_CENTER[trip.country]}
+            center={destinationCenter}
           />
         </div>
 
@@ -577,7 +594,12 @@ export default function TripDetailPage() {
               type="text"
               value={stopName}
               onChange={(e) => setStopName(e.target.value)}
-              placeholder="Nama tempat, mis. Don Quijote Shinjuku"
+              placeholder={
+                resolvingStopName
+                  ? "Mencari nama tempat..."
+                  : "Nama tempat, mis. Don Quijote Shinjuku"
+              }
+              aria-busy={resolvingStopName}
               className="min-w-0 flex-1 rounded-xl border border-border bg-white/80 px-4 py-2.5 text-sm shadow-sm focus:border-primary focus:outline-none"
               autoFocus
             />

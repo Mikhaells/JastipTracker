@@ -37,10 +37,11 @@ export async function POST(req: Request) {
   }
 
   const { name, country, startDate, endDate } = await req.json();
+  const destination = typeof country === "string" ? country.trim() : "";
 
-  if (!name || !country || !startDate) {
+  if (!name || !destination || !startDate) {
     return NextResponse.json(
-      { error: "Nama trip, negara, dan tanggal harus diisi" },
+      { error: "Nama trip, tujuan, dan tanggal harus diisi" },
       { status: 400 }
     );
   }
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     [
       session.user.id,
       name,
-      country,
+      destination,
       new Date(startDate),
       endDate ? new Date(endDate) : null,
     ]

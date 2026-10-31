@@ -42,9 +42,14 @@ export default function TripMap({
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
   const centerRef = useRef(center);
+  const stopsCountRef = useRef(0);
 
   useEffect(() => {
     centerRef.current = center;
+    const map = mapRef.current;
+    if (map && center && stopsCountRef.current === 0) {
+      map.setView(center, map.getZoom());
+    }
   }, [center]);
 
   useEffect(() => {
@@ -86,6 +91,7 @@ export default function TripMap({
     const layer = layerRef.current;
     if (!map || !layer) return;
 
+    stopsCountRef.current = stops.length;
     layer.clearLayers();
 
     stops.forEach((stop, i) => {

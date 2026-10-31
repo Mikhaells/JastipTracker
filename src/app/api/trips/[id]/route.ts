@@ -133,7 +133,17 @@ export async function PATCH(
   };
 
   if (body.name !== undefined) set("name", body.name);
-  if (body.country !== undefined) set("country", body.country);
+  if (body.country !== undefined) {
+    const destination =
+      typeof body.country === "string" ? body.country.trim() : "";
+    if (!destination) {
+      return NextResponse.json(
+        { error: "Negara atau kota tujuan tidak boleh kosong" },
+        { status: 400 }
+      );
+    }
+    set("country", destination);
+  }
   if (body.startDate !== undefined) set("startDate", new Date(body.startDate));
   if (body.endDate !== undefined) {
     set("endDate", body.endDate ? new Date(body.endDate) : null);

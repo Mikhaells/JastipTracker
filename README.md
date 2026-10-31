@@ -5,7 +5,7 @@ Aplikasi web manajemen bisnis jastip (jasa titip) untuk melacak trip, order, pel
 ## Fitur Utama
 
 - **Dashboard** -- Ringkasan statistik: total trip, order, revenue (IDR), margin, dan rate margin
-- **Manajemen Trip** -- Buat trip dengan destinasi negara, tanggal keberangkatan/pulang, dan status (Perencanaan / Berlangsung / Selesai / Dibatalkan)
+- **Manajemen Trip** -- Buat trip dengan destinasi negara atau kota, tanggal keberangkatan/pulang, dan status (Perencanaan / Berlangsung / Selesai / Dibatalkan)
 - **Manajemen Pelanggan** -- CRUD pelanggan dengan riwayat order, edit inline, dan catatan
 - **Manajemen Order** -- Tambah order ke trip dengan multiple item dan update status
 - **Konversi Mata Uang Otomatis** -- Harga mata uang asing otomatis dikonversi ke IDR menggunakan live exchange rate (Frankfurter API) dengan caching 1 jam

@@ -6,24 +6,16 @@ import {
   ArrowLeft,
   LoaderCircle,
   Plane,
-  MapPin,
   Globe2,
   CalendarDays,
 } from "lucide-react";
 import Link from "next/link";
-
-const COUNTRIES = [
-  "Jepang", "Korea Selatan", "Singapura", "Malaysia", "Thailand",
-  "Amerika Serikat", "Inggris", "Australia", "Jerman", "Prancis",
-  "Uni Emirat Arab", "Arab Saudi", "Hong Kong", "Taiwan", "Tiongkok",
-  "Filipina", "Vietnam", "Brunei", "Qatar", "Kuwait",
-];
+import { COUNTRIES } from "@/lib/destinations";
 
 export default function NewTripPage() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [country, setCountry] = useState("");
-  const [customCountry, setCustomCountry] = useState("");
+  const [destination, setDestination] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,10 +26,10 @@ export default function NewTripPage() {
     setError("");
     setLoading(true);
 
-    const finalCountry = country === "Lainnya" ? customCountry : country;
+    const finalDestination = destination.trim();
 
-    if (!finalCountry) {
-      setError("Negara harus diisi");
+    if (!finalDestination) {
+      setError("Negara atau kota tujuan harus diisi");
       setLoading(false);
       return;
     }
@@ -48,7 +40,7 @@ export default function NewTripPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          country: finalCountry,
+          country: finalDestination,
           startDate,
           endDate: endDate || null,
         }),
@@ -116,43 +108,31 @@ export default function NewTripPage() {
         </div>
 
         <div>
-          <label className="form-label">Negara Tujuan *</label>
+          <label className="form-label">Negara / Kota Tujuan *</label>
           <div className="relative">
             <Globe2
               size={15}
               className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-slate-400"
             />
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
+            <input
+              type="text"
+              list="trip-destination-options"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
               required
-              className="form-input pl-10 pr-9"
-            >
-              <option value="">Pilih negara</option>
+              className="form-input pl-10"
+              placeholder="Contoh: Jepang atau Jakarta"
+              autoComplete="off"
+            />
+            <datalist id="trip-destination-options">
               {COUNTRIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
+                <option key={c} value={c} />
               ))}
-              <option value="Lainnya">Lainnya...</option>
-            </select>
+            </datalist>
           </div>
-          {country === "Lainnya" && (
-            <div className="relative mt-2">
-              <MapPin
-                size={15}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                value={customCountry}
-                onChange={(e) => setCustomCountry(e.target.value)}
-                required
-                className="form-input pl-10"
-                placeholder="Masukkan nama negara"
-              />
-            </div>
-          )}
+          <p className="form-hint">
+            Bisa diisi negara atau kota. Ketik bebas jika tidak ada di daftar.
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
