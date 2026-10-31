@@ -319,7 +319,7 @@ export default function HomePage() {
                           <MoneyIDR amount={trip.totalRevenue} />
                         </p>
                         <p className="text-[11px] font-medium text-success">
-                          +<MoneyIDR amount={trip.totalMargin} />
+                          Margin <MoneyIDR amount={trip.totalMargin} />
                         </p>
                       </div>
                     </div>

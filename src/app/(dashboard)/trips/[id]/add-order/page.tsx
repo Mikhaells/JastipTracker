@@ -42,10 +42,6 @@ interface OrderItemInput {
   idrPreview: number;
 }
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 10);
-}
-
 export default function AddOrderPage() {
   const params = useParams();
   const router = useRouter();
@@ -145,7 +141,6 @@ export default function AddOrderPage() {
     setItems((prev) => [
       ...prev,
       {
-        id: generateId(),
         itemName: "",
         quantity: 1,
         unitPriceForeign: 0,
@@ -161,11 +156,12 @@ export default function AddOrderPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const totalIDR = items.reduce((s, i) => s + i.idrPreview * i.quantity, 0);
+  const totalCost = items.reduce((s, i) => s + i.idrPreview * i.quantity, 0);
   const totalMargin = items.reduce(
     (s, i) => s + i.marginPerUnit * i.quantity,
     0
   );
+  const totalIDR = totalCost + totalMargin;
 
   function handleStopSearchChange(value: string) {
     setStopSearch(value);
@@ -245,7 +241,7 @@ export default function AddOrderPage() {
             quantity: i.quantity,
             unitPriceForeign: i.unitPriceForeign,
             currency: i.currency,
-            margin: i.margin,
+            marginPerUnit: i.marginPerUnit,
             notes: i.notes || null,
           })),
         }),
@@ -494,12 +490,16 @@ export default function AddOrderPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Margin (IDR)</label>
+                  <label className="form-label">Margin per Unit (IDR)</label>
                   <input
                     type="number"
-                    value={item.margin || ""}
+                    value={item.marginPerUnit || ""}
                     onChange={(e) =>
-                      updateItem(idx, "margin", parseFloat(e.target.value) || 0)
+                      updateItem(
+                        idx,
+                        "marginPerUnit",
+                        parseFloat(e.target.value) || 0
+                      )
                     }
                     min="0"
                     className="form-input"
@@ -513,7 +513,7 @@ export default function AddOrderPage() {
                 onChange={(val, idr) => handleCurrencyChange(idx, val, idr)}
                 currency={item.currency}
                 onCurrencyChange={(c) => updateItem(idx, "currency", c)}
-                label="Harga Satuan"
+                label="Harga Satuan (Modal)"
               />
 
               <div>
@@ -530,21 +530,21 @@ export default function AddOrderPage() {
           ))}
         </div>
 
-        <div className="surface-card p-5">
+        <div className="surface-card space-y-1.5 p-5">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">Subtotal</span>
-            <span className="text-base font-semibold tabular-nums">
+            <span className="text-sm text-muted">Total Modal</span>
+            <span className="text-sm tabular-nums">
               {new Intl.NumberFormat("id-ID", {
                 style: "currency",
                 currency: "IDR",
                 minimumFractionDigits: 0,
-              }).format(totalIDR)}
+              }).format(totalCost)}
             </span>
           </div>
           {totalMargin > 0 && (
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-sm text-muted">Margin</span>
-              <span className="font-semibold tabular-nums text-emerald-600">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted">Total Margin</span>
+              <span className="text-sm font-semibold tabular-nums text-emerald-600">
                 +{new Intl.NumberFormat("id-ID", {
                   style: "currency",
                   currency: "IDR",
@@ -553,6 +553,16 @@ export default function AddOrderPage() {
               </span>
             </div>
           )}
+          <div className="mt-2 flex items-center justify-between border-t border-border/70 pt-2">
+            <span className="text-sm font-medium">Subtotal</span>
+            <span className="text-base font-semibold tabular-nums">
+              {new Intl.NumberFormat("id-ID", {
+                style: "currency",
+                currency: "IDR",
+                minimumFractionDigits: 0,
+              }).format(totalIDR)}
+            </span>
+          </div>
         </div>
 
         <button

@@ -919,7 +919,7 @@ export default function TripDetailPage() {
                           </p>
                           {orderMargin > 0 && (
                             <p className="text-[11px] font-medium text-emerald-600">
-                              +<MoneyIDR amount={orderMargin} />
+                              Margin <MoneyIDR amount={orderMargin} />
                             </p>
                           )}
                         </div>

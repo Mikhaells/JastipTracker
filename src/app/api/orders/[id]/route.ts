@@ -167,8 +167,16 @@ export async function PATCH(
 
     for (const item of body.items) {
       const rate = await getExchangeRate(item.currency, "IDR");
+      const quantity = item.quantity || 1;
       const unitPriceIDR = item.unitPriceForeign * rate;
-      const totalIDR = unitPriceIDR * (item.quantity || 1);
+      // Margin per unit ditambahkan di atas harga modal.
+      // Fallback ke `margin` total untuk kompatibilitas dengan client lama.
+      const marginPerUnit =
+        item.marginPerUnit !== undefined
+          ? Number(item.marginPerUnit) || 0
+          : (Number(item.margin) || 0) / quantity;
+      const margin = marginPerUnit * quantity;
+      const totalIDR = unitPriceIDR * quantity + margin;
 
       await query(
         `INSERT INTO "OrderItem" ("id", "orderId", "itemName", "quantity", "unitPriceForeign",
@@ -177,12 +185,12 @@ export async function PATCH(
         [
           id,
           item.itemName,
-          item.quantity || 1,
+          quantity,
           item.unitPriceForeign,
           item.currency,
           unitPriceIDR,
           totalIDR,
-          item.margin || 0,
+          margin,
           item.notes || null,
         ]
       );

@@ -44,13 +44,20 @@ export async function POST(req: Request) {
   const processedItems = [];
   for (const item of items) {
     const rate = await getExchangeRate(item.currency, "IDR");
+    const quantity = item.quantity || 1;
     const unitPriceIDR = item.unitPriceForeign * rate;
-    const totalIDR = unitPriceIDR * (item.quantity || 1);
-    const margin = item.margin || 0;
+    // Margin per unit ditambahkan di atas harga modal.
+    // Fallback ke `margin` total untuk kompatibilitas dengan client lama.
+    const marginPerUnit =
+      item.marginPerUnit !== undefined
+        ? Number(item.marginPerUnit) || 0
+        : (Number(item.margin) || 0) / quantity;
+    const margin = marginPerUnit * quantity;
+    const totalIDR = unitPriceIDR * quantity + margin;
 
     processedItems.push({
       itemName: item.itemName,
-      quantity: item.quantity || 1,
+      quantity,
       unitPriceForeign: item.unitPriceForeign,
       currency: item.currency,
       unitPriceIDR,

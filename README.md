@@ -9,7 +9,7 @@ Aplikasi web manajemen bisnis jastip (jasa titip) untuk melacak trip, order, pel
 - **Manajemen Pelanggan** -- CRUD pelanggan dengan riwayat order, edit inline, dan catatan
 - **Manajemen Order** -- Tambah order ke trip dengan multiple item dan update status
 - **Konversi Mata Uang Otomatis** -- Harga mata uang asing otomatis dikonversi ke IDR menggunakan live exchange rate (Frankfurter API) dengan caching 1 jam
-- **Pelacakan Margin** -- Margin per item (IDR) yang diagregasi per order dan per trip
+- **Pelacakan Margin** -- Harga satuan diinput sebagai harga modal, lalu margin per unit (IDR) ditambahkan di atasnya. Subtotal item = (harga modal + margin per unit) x qty, dan margin diagregasi per order dan per trip
 - **Autentikasi Multi-User** -- Setiap user memiliki data yang terisolasi
 
 ## Tech Stack
@@ -35,7 +35,7 @@ Aplikasi web manajemen bisnis jastip (jasa titip) untuk melacak trip, order, pel
 | `Customer` | Data pelanggan (id UUID, userId FK, name, phone, email, notes) |
 | `Trip` | Data trip (id UUID, userId FK, name, country, startDate, endDate, status) |
 | `Order` | Data order (id UUID, tripId FK, customerId FK, stopId FK opsional, status, notes, receiptUrl) |
-| `OrderItem` | Item order (id UUID, orderId FK, itemName, quantity, unitPriceForeign, currency, unitPriceIDR, totalIDR, margin) |
+| `OrderItem` | Item order (id UUID, orderId FK, itemName, quantity, unitPriceForeign, currency, unitPriceIDR = harga modal per unit, totalIDR = (unitPriceIDR + margin per unit) x quantity, margin = total margin per baris) |
 | `CurrencyRate` | Cache exchange rate (baseCurrency, targetCurrency, rate, fetchedAt) |
 | `TripStop` | Tempat/rute trip (id UUID, tripId FK, name, latitude, longitude, orderIndex) |
 
